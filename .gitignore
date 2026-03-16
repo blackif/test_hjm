@@ -1,0 +1,7 @@
+skills/auto-ppt/tools/__pycache__/
+skills/auto-ppt/tools/*.dist-info/
+skills/auto-ppt/tools/sympy/
+skills/auto-ppt/tools/urllib3/
+skills/auto-ppt/tools/requests/
+skills/auto-ppt/tools/packaging/
+skills/auto-ppt/tools/typing_extensions.py

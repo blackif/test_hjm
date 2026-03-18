@@ -19,6 +19,44 @@ SESSION_FILE = os.path.join(CONFIG_DIR, "session.json")
 
 # ─── Module-level connection handle ───────────────
 _conn = None
+_conn_from_pool = None  # 从连接池获取的连接
+
+
+# ─────────────────────────────────────────────────
+# 连接池集成
+# ─────────────────────────────────────────────────
+
+def get_connection_from_pool(user: str = "", password: str = ""):
+    """
+    从连接池获取连接（性能优化）
+    
+    Args:
+        user: SAP 用户名
+        password: SAP 密码
+    
+    Returns:
+        RFC 连接对象，失败返回 None
+    """
+    try:
+        from connection_pool import get_connection as pool_get
+        return pool_get(user=user, password=password)
+    except Exception as e:
+        print(f"连接池获取失败：{e}")
+        return None
+
+
+def release_connection_to_pool(conn):
+    """
+    释放连接回连接池
+    
+    Args:
+        conn: RFC 连接对象
+    """
+    try:
+        from connection_pool import release_connection as pool_release
+        pool_release(conn)
+    except Exception as e:
+        print(f"连接池释放失败：{e}")
 
 
 # ─────────────────────────────────────────────────

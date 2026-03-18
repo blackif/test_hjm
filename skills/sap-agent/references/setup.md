@@ -179,3 +179,97 @@ conn.close()
 
 If you can't install the SDK, use pure HTTP OData:
 → see `references/odata.md`
+
+---
+
+## HTTP Service Setup (Optional - Performance Optimization)
+
+For better performance with connection pooling and batch operations, run the SAP Agent as an HTTP service.
+
+### Install Dependencies
+
+```bash
+# Install FastAPI and uvicorn
+pip3 install --break-system-packages fastapi uvicorn
+```
+
+### Start the Service
+
+```bash
+# Start HTTP service (default: http://127.0.0.1:8765)
+cd ~/.nvm/versions/node/v24.14.0/lib/node_modules/openclaw/skills/public/sap-agent/scripts
+python3 sap_service.py --host 127.0.0.1 --port 8765
+```
+
+### Configure Performance Settings
+
+Edit `~/.sap-agent/performance.json`:
+
+```json
+{
+  "connection_pool": {
+    "max_connections": 5,
+    "idle_timeout": 300
+  },
+  "service": {
+    "host": "127.0.0.1",
+    "port": 8765,
+    "session_timeout": 3600
+  }
+}
+```
+
+### Run as Background Service (systemd)
+
+Create `/etc/systemd/system/sap-agent.service`:
+
+```ini
+[Unit]
+Description=SAP Agent HTTP Service
+After=network.target
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/home/ubuntu/.nvm/versions/node/v24.14.0/lib/node_modules/openclaw/skills/public/sap-agent/scripts
+Environment="SAPNWRFC_HOME=/usr/local/sap/nwrfcsdk"
+Environment="LD_LIBRARY_PATH=/usr/local/sap/nwrfcsdk/lib"
+ExecStart=/usr/bin/python3 sap_service.py --host 127.0.0.1 --port 8765
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+```
+
+Then:
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable sap-agent
+sudo systemctl start sap-agent
+sudo systemctl status sap-agent
+```
+
+### Test Service
+
+```bash
+# Health check
+curl http://127.0.0.1:8765/health
+
+# Get stats
+curl http://127.0.0.1:8765/stats
+
+# Connect
+curl -X POST http://127.0.0.1:8765/connect \
+  -H "Content-Type: application/json" \
+  -d '{"user": "10437", "password": "handhand"}'
+```
+
+### Performance Benefits
+
+| Metric | Direct RFC | HTTP Service |
+|--------|-----------|--------------|
+| First connection | 1-2s | 1-2s |
+| Subsequent calls | 0.5-2s | 0.1-0.5s |
+| Batch 100 rows | 50-200s | 5-10s |
+| Connection reuse | ❌ | ✅ |

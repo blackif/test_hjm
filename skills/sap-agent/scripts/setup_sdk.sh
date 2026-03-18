@@ -52,7 +52,29 @@ export LD_LIBRARY_PATH=$SAPNWRFC_HOME/lib:$LD_LIBRARY_PATH
 
 echo ""
 echo "=== Installing pyrfc ==="
-pip3 install --user pyrfc
+
+# Install Cython first
+echo "Installing Cython..."
+sudo pip3 install --break-system-packages Cython
+
+# Clone PyRFC and fix ARM64 compatibility
+echo "Cloning PyRFC from GitHub..."
+cd /tmp
+rm -rf PyRFC
+git clone https://github.com/SAP/PyRFC.git
+cd PyRFC
+
+# Remove incompatible compiler flag for ARM64
+echo "Fixing ARM64 compatibility..."
+sed -i 's/"-minline-all-stringops",//g' setup.py
+
+# Build and install
+echo "Building pyrfc..."
+python3 setup.py build
+
+echo "Installing pyrfc..."
+sudo SAPNWRFC_HOME=$SAPNWRFC_HOME LD_LIBRARY_PATH=$LD_LIBRARY_PATH python3 setup.py install
+
 echo "✓ pyrfc installed"
 
 echo ""
@@ -68,6 +90,7 @@ echo "=== Setup Complete ==="
 echo ""
 echo "SDK Location: $SDK_TARGET"
 echo "Environment: SAPNWRFC_HOME=$SAPNWRFC_HOME"
+echo "pyrfc version: $(python3 -c 'import pyrfc; print(pyrfc.__version__)' 2>/dev/null || echo 'N/A')"
 echo ""
 echo "Next steps:"
 echo "1. Run: source ~/.bashrc"

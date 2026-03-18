@@ -240,7 +240,7 @@ async function buildPresentation() {
   addEndSlide(pres, "感谢聆听", "愿你找到生命的意义与平静");
 
   // 保存文件
-  await pres.writeFile({ fileName: "/home/ubuntu/.openclaw/workspace/auto-ppt-outputs/presentation.pptx" });
+  await pres.writeFile({ fileName: "../auto-ppt-outputs/presentation.pptx" });
   console.log("OK PPT 生成完成");
 }
 

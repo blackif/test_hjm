@@ -1,0 +1,36 @@
+{
+  "paths": {
+    "workspaceRoot": "~/.openclaw/workspace",
+    "skillRoot": ".",
+    "outputs": {
+      "directory": "auto-ppt-outputs",
+      "presentation": "auto-ppt-outputs/presentation.pptx",
+      "pdf": "auto-ppt-outputs/presentation.pdf",
+      "slideImages": "auto-ppt-outputs/slide-*.jpg"
+    },
+    "tools": {
+      "directory": "tools",
+      "markitdown": "tools/",
+      "office": "tools/office/soffice.py"
+    },
+    "script": {
+      "directory": "script",
+      "generate": "script/generate_ppt.js",
+      "utils": "script/ppt-utils.js"
+    },
+    "references": {
+      "directory": "references",
+      "pptxGeneration": "references/pptx-generation.md",
+      "slideTemplates": "references/slide-templates.md"
+    }
+  },
+  "commands": {
+    "installMarkitdown": "pip3 install markitdown --target {tools.directory}",
+    "checkPresentation": "PYTHONPATH={tools.markitdown} python3 -m markitdown {outputs.presentation}",
+    "convertToPdf": "python3 {tools.office} --headless --convert-to pdf {outputs.presentation}",
+    "pdfToImages": "pdftoppm -jpeg -r 150 {outputs.pdf} {outputs.directory}/slide",
+    "cleanSlides": "rm -f {outputs.slideImages}",
+    "cleanPdf": "rm -f {outputs.pdf}",
+    "cleanPresentation": "rm -f {outputs.presentation}"
+  }
+}

@@ -212,13 +212,13 @@ npm install -g pptxgenjs
 npm install -g react-icons react react-dom sharp
 
 # QA 工具安装
-pip3 install markitdown --target /home/ubuntu/.nvm/versions/node/v24.14.0/lib/node_modules/openclaw/skills/public/auto-ppt/tools/
+pip3 install markitdown --target tools/
 sudo apt-get install -y libreoffice-core poppler-utils
 ```
 
 ### 生成脚本结构
 
-详见 generate_ppt.js (/home/ubuntu/.nvm/versions/node/v24.14.0/lib/node_modules/openclaw/skills/public/auto-ppt/script/generate_ppt.js) 了解完整的脚本结构。
+详见 [script/generate_ppt.js](script/generate_ppt.js) 了解完整的脚本结构。
 
 脚本必须包含以下核心组件：
 
@@ -240,7 +240,7 @@ sudo apt-get install -y libreoffice-core poppler-utils
    - 主构建函数 buildPresentation()
 
 5. 输出路径
-   - /home/ubuntu/.openclaw/workspace/auto-ppt-outputs/presentation.pptx
+   - `auto-ppt-outputs/presentation.pptx`（详见 [references/config.json](references/config.json)）
 
 6. 动态布局逻辑
    - 根据 Key Point 数量自动选择布局模式
@@ -280,13 +280,13 @@ sudo apt-get install -y libreoffice-core poppler-utils
 
 ```bash
 # 1. 文字内容检查
-PYTHONPATH=/home/ubuntu/.nvm/versions/node/v24.14.0/lib/node_modules/openclaw/skills/public/auto-ppt/tools/ python3 -m markitdown /home/ubuntu/.openclaw/workspace/auto-ppt-outputs/presentation.pptx
+PYTHONPATH=tools/ python3 -m markitdown auto-ppt-outputs/presentation.pptx
 
 # 2. 转换为图片进行视觉检查
-python3 /home/ubuntu/.nvm/versions/node/v24.14.0/lib/node_modules/openclaw/skills/public/auto-ppt/tools/office/soffice.py --headless --convert-to pdf /home/ubuntu/.openclaw/workspace/auto-ppt-outputs/presentation.pptx
-rm -f /home/ubuntu/.openclaw/workspace/auto-ppt-outputs/slide-*.jpg
-pdftoppm -jpeg -r 150 /home/ubuntu/.openclaw/workspace/auto-ppt-outputs/presentation.pdf /home/ubuntu/.openclaw/workspace/auto-ppt-outputs/slide
-ls -1 "$PWD"/home/ubuntu/.openclaw/workspace/auto-ppt-outputs/slide-*.jpg
+python3 tools/office/soffice.py --headless --convert-to pdf auto-ppt-outputs/presentation.pptx
+rm -f auto-ppt-outputs/slide-*.jpg
+pdftoppm -jpeg -r 150 auto-ppt-outputs/presentation.pdf auto-ppt-outputs/slide
+ls -1 "$PWD"/auto-ppt-outputs/slide-*.jpg
 ```
 
 用 `view` 工具检查每张幻灯片图片，重点检查：
@@ -308,12 +308,12 @@ QA 验证通过后，直接在当前对话中发送 PPT 文件给用户，然后
 
 **1. 在当前对话中发送文件**
 - 使用 `message` 工具的 `action=send` 发送 PPT 文件
-- 参数：`filePath=/home/ubuntu/.openclaw/workspace/auto-ppt-outputs/presentation.pptx`
+- 参数：`filePath=auto-ppt-outputs/presentation.pptx`
 - 同时发送简短的完成消息，例如："✅ PPT 生成完成！请查收附件。"
 
 **2. 删除本地文件**
-- 发送成功后立即执行：`rm -f /home/ubuntu/.openclaw/workspace/auto-ppt-outputs/presentation.pptx`
-- 同时清理可能生成的 PDF 和图片文件：`rm -f /home/ubuntu/.openclaw/workspace/auto-ppt-outputs/presentation.pdf /home/ubuntu/.openclaw/workspace/auto-ppt-outputs/slide-*.jpg`
+- 发送成功后立即执行：`rm -f auto-ppt-outputs/presentation.pptx`
+- 同时清理可能生成的 PDF 和图片文件：`rm -f auto-ppt-outputs/presentation.pdf auto-ppt-outputs/slide-*.jpg`
 
 ### 交付完成提示
 

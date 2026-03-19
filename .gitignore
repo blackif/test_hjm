@@ -8,6 +8,4 @@ skills/auto-ppt/tools/typing_extensions.py
 
 # SAP Agent
 .sap-agent/
-skills/sap-agent/sdk/*.zip
-skills/sap-agent/sdk/nwrfcsdk/
 *.log

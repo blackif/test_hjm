@@ -9,7 +9,6 @@
 | 文件 | 大小 | 说明 |
 |------|------|------|
 | `nwrfc750P_18-80009783.zip` | 23MB | SAP NW RFC SDK 7.50 安装包 |
-| `nwrfcsdk/` | - | 已解压的 SDK 文件（可选） |
 
 ---
 
@@ -55,24 +54,6 @@ pip3 install --break-system-packages pyrfc
 
 ---
 
-## 注意事项
-
-1. **不要提交到 Git**
-   - SDK 文件较大（23MB）
-   - 包含二进制文件
-   - 已在 `.gitignore` 中排除
-
-2. **权限设置**
-   - SDK 文件权限：644
-   - 库文件权限：755
-
-3. **系统要求**
-   - Linux x86_64 或 ARM64
-   - glibc 2.17+
-   - libstdc++6
-
----
-
 ## 验证安装
 
 ```bash
@@ -89,7 +70,6 @@ pyrfc version: 3.4
 ## 相关文件
 
 - [../references/setup.md](../references/setup.md) - 完整安装指南
-- [../references/setup.md](../references/setup.md) - SDK 安装详细说明
 - [../scripts/setup_sdk.sh](../scripts/setup_sdk.sh) - 自动安装脚本
 
 ---

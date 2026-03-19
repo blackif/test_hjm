@@ -13,63 +13,7 @@ compatibility:
 
 # SAP Agent Skill
 
-管理 SAP 连接的完整生命周期：初始化、邮箱验证、连接、操作和优雅断开（包括定时自动断开）。
-
----
-
-## 首次安装指南（第一次使用必读）
-
-### 快速开始（5 分钟）
-
-**步骤 1：安装 SDK**
-```bash
-cd <sap-agent 技能目录>/scripts
-bash setup_sdk.sh
-source ~/.bashrc
-```
-
-**步骤 2：创建配置**
-```bash
-mkdir -p ~/.sap-agent
-cat > ~/.sap-agent/config.json << 'EOF'
-{
-  "sap-1": {
-    "directions": "生产环境 - 财务系统",
-    "mode": "saprouter",
-    "ashost": "/H/your-router/S/3299/H/your-server",
-    "sysnr": "00",
-    "client": "800",
-    "sysid": "ED1",
-    "lang": "ZH"
-  },
-  "sdk": {
-    "home": "/usr/local/sap/nwrfcsdk",
-    "version": "7.50",
-    "installed": true
-  }
-}
-EOF
-chmod 600 ~/.sap-agent/config.json
-```
-
-**步骤 3：安装依赖**
-```bash
-pip3 install --break-system-packages fastapi uvicorn
-```
-
-**步骤 4：启动服务**
-```bash
-export SAPNWRFC_HOME=/usr/local/sap/nwrfcsdk
-export LD_LIBRARY_PATH=$SAPNWRFC_HOME/lib
-python3 sap_service.py --host 127.0.0.1 --port 8765
-```
-
-**步骤 5：测试**
-```bash
-curl http://127.0.0.1:8765/health
-```
-
-> 📖 **详细指南：** 查看 [references/setup.md](references/setup.md)
+管理 SAP 的完整生命周期：初始化、连接、操作和断开。
 
 ---
 

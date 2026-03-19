@@ -38,20 +38,15 @@ state = result.stdout.strip()
 | 返回状态 | 操作 |
 |---|---|
 | `first_run` | → 运行首次运行向导 |
-| `open_http` | → 检查/启动 HTTP 服务（如启用性能优化） |
+| `open_http` | → 检查/启动 HTTP 服务（强制启用） |
 | `sap_login` | → SAP 登录（用户名密码验证） |
 | `connected` | → 继续执行操作 |
 | `closed_sap` | → SAP 已退出（空闲超时或手动断开），→ 运行 SAP 登录 |
-| `closed_http` | → HTTP 服务已关闭（可选，服务未运行时） |
 
 **状态流转：**
 ```
 first_run → open_http → sap_login → connected → closed_sap → sap_login (循环)
-                              ↓
-                         closed_http (可选)
 ```
-
-详见 `references/setup.md`。
 
 ---
 
@@ -132,7 +127,7 @@ from scripts.config_manager import save_config
 save_config(email_config, sap_config)
 ```
 
-**启动 HTTP 服务（推荐）：**
+**启动 HTTP 服务（强制）：**
 
 告知用户：
 > "✅ 配置已保存。现在启动 HTTP 服务以启用连接池优化（可避免每次登录等待 50s）。"
@@ -291,12 +286,10 @@ disconnect()
 
 ## 性能优化（HTTP 服务模式）
 
-**详细说明请查看 `references/setup.md`**
-
 简要说明：
 - HTTP 服务提供连接池功能，避免每次查询都重新登录
 - 登录后连接保持在池中，后续查询直接使用，速度提升 4-20 倍
-- 建议在首次运行向导的步骤 4 中启动服务
+- 首次运行向导的步骤 4 中强制启动服务
 
 ---
 

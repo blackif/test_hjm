@@ -22,7 +22,7 @@ compatibility:
 每次激活此技能时，**首先**运行此决策树：
 
 ```
-scripts/init_check.py   →   返回："first_run" | "needs_login" | "connected" | "force_disconnect"
+scripts/init_check.py   →   返回："first_run" | "open_http" | "sap_login" | "connected" | "closed_sap" | "closed_http"
 ```
 
 ```python
@@ -38,11 +38,20 @@ state = result.stdout.strip()
 | 返回状态 | 操作 |
 |---|---|
 | `first_run` | → 运行首次运行向导 |
-| `needs_login` | → 检查 HTTP 服务状态 → 运行 SAP 登录 |
+| `open_http` | → 检查/启动 HTTP 服务（如启用性能优化） |
+| `sap_login` | → SAP 登录（用户名密码验证） |
 | `connected` | → 继续执行操作 |
-| `force_disconnect` | → 告知用户连接已自动关闭，→ 运行 SAP 登录 |
+| `closed_sap` | → SAP 已退出（空闲超时或手动断开），→ 运行 SAP 登录 |
+| `closed_http` | → HTTP 服务已关闭（可选，服务未运行时） |
 
-**注意：** 如果启用了 HTTP 服务模式，在 `needs_login` 时应先检查服务状态，确保登录后可以使用连接池。详见 `references/setup.md`。
+**状态流转：**
+```
+first_run → open_http → sap_login → connected → closed_sap → sap_login (循环)
+                              ↓
+                         closed_http (可选)
+```
+
+详见 `references/setup.md`。
 
 ---
 
@@ -52,12 +61,12 @@ state = result.stdout.strip()
 
 ### 步骤 1 — 检查邮箱配置
 
-先检查 `config.json` 中是否已配置 `manager-email` 字段：
+先检查 `config.json` 中是否已配置 SMTP 和发件邮箱：
 
 ```python
 from scripts.config_manager import load_config
 config = load_config()
-if config.get("manager-email"):
+if config.get("email"):
     # 已配置，跳过此步骤
     proceed_to_step_2()
 else:
@@ -72,7 +81,6 @@ SMTP 端口 (常用：587=TLS, 465=SSL, 25):
 加密方式：TLS / SSL / 无
 发件邮箱地址：
 发件邮箱密码：
-管理员邮箱地址（用于接收通知）:
 ```
 
 使用 `scripts/email_verify.py` 测试 SMTP 连接：
@@ -82,7 +90,15 @@ ok, msg = test_smtp_connection(smtp_config)
 # 如果 ok 为假 → 告知用户错误，请求重新输入
 ```
 
-### 步骤 2 — 收集 SAP 系统参数
+### 步骤 2 — 收集管理员邮箱
+
+收集管理员邮箱地址，用于接收 SAP Agent 的通知邮件：
+
+```
+管理员邮箱地址（用于接收通知）:
+```
+
+### 步骤 3 — 收集 SAP 系统参数
 
 询问：
 ```
@@ -109,7 +125,7 @@ SAProuter 路由密码 (没有则留空):
 登录组 (group, 例：PUBLIC):
 ```
 
-### 步骤 3 — 保存配置并启动 HTTP 服务
+### 步骤 4 — 保存配置并启动 HTTP 服务
 
 ```python
 from scripts.config_manager import save_config
@@ -184,10 +200,10 @@ result = connect(config, sap_user, sap_password)
 每次操作前，调用：
 ```python
 from scripts.sap_session import check_session
-state = check_session()   # "ok" | "force_disconnect" | "disconnected"
+state = check_session()   # "connected" | "closed_sap" | "disconnected"
 ```
 
-如果为 `force_disconnect` 或 `disconnected` → 告知用户并转到 SAP 登录。
+如果为 `closed_sap` 或 `disconnected` → 告知用户并转到 SAP 登录。
 
 ### 断开连接关键词检测
 
@@ -238,7 +254,7 @@ disconnect()
 
 1. 在 `session.json` 中记录 `last_activity` 时间戳
 2. 每次 SAP 操作前检查空闲时间
-3. 超过设定时间（默认 60 分钟）无操作自动设置 `force_disconnect: true`
+3. 超过设定时间（默认 60 分钟）无操作自动设置 `closed_sap` 状态
 
 **配置超时时间：**
 
@@ -280,7 +296,7 @@ disconnect()
 简要说明：
 - HTTP 服务提供连接池功能，避免每次查询都重新登录
 - 登录后连接保持在池中，后续查询直接使用，速度提升 4-20 倍
-- 建议在首次运行向导的步骤 3 中启动服务
+- 建议在首次运行向导的步骤 4 中启动服务
 
 ---
 

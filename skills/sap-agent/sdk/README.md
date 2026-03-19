@@ -67,11 +67,4 @@ pyrfc version: 3.4
 
 ---
 
-## 相关文件
-
-- [../references/setup.md](../references/setup.md) - 完整安装指南
-- [../scripts/setup_sdk.sh](../scripts/setup_sdk.sh) - 自动安装脚本
-
----
-
 **更新时间：** 2026-03-19

@@ -31,83 +31,29 @@
 
 - [ ] SAP NW RFC SDK 7.50
   - 位置：`sdk/nwrfc750P_18-80009783.zip` (技能文件夹内)
-  - 或：`~/.openclaw/workspace/sap-sdk/nwrfcsdk`
 
 ### SAP 系统信息
 
 准备以下信息：
 - [ ] SAP 系统类型（ECC / S/4HANA）
 - [ ] 连接方式（直连 / SAProuter / 消息服务器）
-- [ ] 服务器地址和端口
+- [ ] 服务器地址
 - [ ] 系统编号 (SYSNR)
 - [ ] 集团代码 (CLIENT)
-- [ ] SAP 用户名和密码
+- [ ] SAP 用户名
+- [ ] SAP 密码
+- [ ] 管理员邮箱
+
+### Agent 需求
+
+- [ ] 配置收发邮件功能
+- [ ] 准备 SMTP 服务器信息
 
 ---
 
 ## 步骤 1：安装 SAP NW RFC SDK
 
-### 方式 1：自动安装（推荐）
-
-```bash
-# 1.1 运行安装脚本
-cd /home/ubuntu/.nvm/versions/node/v24.14.0/lib/node_modules/openclaw/skills/public/sap-agent/scripts
-bash setup_sdk.sh
-
-# 1.2 重新加载环境变量
-source ~/.bashrc
-
-# 1.3 验证安装
-python3 -c "import pyrfc; print('pyrfc version:', pyrfc.__version__)"
-```
-
-**预期输出：**
-```
-pyrfc version: 3.4
-```
-
-### 方式 2：手动安装
-
-```bash
-# 1. SDK 已解压到 workspace
-SDK_SOURCE=$HOME/.openclaw/workspace/sap-sdk/nwrfcsdk
-SDK_TARGET=/usr/local/sap/nwrfcsdk
-
-# 2. 复制到系统目录
-sudo mkdir -p /usr/local/sap
-sudo cp -r $SDK_SOURCE $SDK_TARGET
-
-# 3. 设置环境变量
-export SAPNWRFC_HOME=/usr/local/sap/nwrfcsdk
-export LD_LIBRARY_PATH=$SAPNWRFC_HOME/lib:$LD_LIBRARY_PATH
-
-# 4. 添加到 ~/.bashrc
-echo 'export SAPNWRFC_HOME=/usr/local/sap/nwrfcsdk' >> ~/.bashrc
-echo 'export LD_LIBRARY_PATH=$SAPNWRFC_HOME/lib:$LD_LIBRARY_PATH' >> ~/.bashrc
-
-# 5. 安装 pyrfc
-pip3 install --break-system-packages pyrfc
-
-# 6. 验证
-python3 -c "import pyrfc; print('pyrfc OK')"
-```
-
-### 其他平台
-
-**Windows:**
-```powershell
-# 1. 解压到 C:\nwrfcsdk
-# 2. 添加到系统 PATH: C:\nwrfcsdk\lib
-# 3. 安装 pyrfc
-pip install pyrfc
-```
-
-**macOS (Apple Silicon):**
-```bash
-# NW RFC SDK 无 ARM64 版本，使用 Rosetta 或 Docker
-docker run --platform linux/amd64 -it python:3.11 bash
-# 在容器内执行 Linux 安装步骤
-```
+参照 [sdk/README.md](sdk/README.md) 文件执行安装。
 
 ---
 
@@ -127,23 +73,23 @@ cat > ~/.sap-agent/config.json << 'EOF'
   "version": "1.1",
   "initialized": true,
   "initialized_at": "2026-03-19T00:00:00Z",
+  "manager-email": "your-email@example.com",
   "email": {
-    "smtp_host": "smtp.office365.com",
+    "adress": "your-email@example.com",
     "smtp_port": 587,
     "smtp_use_tls": true,
     "smtp_use_ssl": false,
     "smtp_user": "",
     "smtp_password_enc": "",
-    "notify_email": "",
     "verified": false
   },
   "sap": {
     "mode": "saprouter",
     "ashost": "/H/your-saprouter/S/3299/H/your-server",
-    "sysnr": "00",
-    "client": "800",
-    "sysid": "ED1",
-    "lang": "ZH",
+    "sysnr": "YOUR SYSNR",
+    "client": "your client",
+    "sysid": "your sysid",
+    "lang": "your lang",
     "saprouter_host": "your-saprouter",
     "saprouter_port": "3299"
   },
@@ -163,6 +109,8 @@ chmod 600 ~/.sap-agent/config.json
 
 | 参数 | 说明 | 示例值 |
 |------|------|--------|
+| `manager-email` | 管理员邮箱地址 | `admin@company.com` |
+| `email.adress` | Agent 发件邮箱 | `agent@company.com` |
 | `sap.mode` | 连接方式 | `saprouter` / `direct` / `msserver` |
 | `sap.ashost` | SAProuter 连接字符串 | `/H/vs064.HAND-CHINA.COM/S/3299/H/192.168.11.34` |
 | `sap.sysnr` | 系统编号（2 位） | `10` |
@@ -480,17 +428,7 @@ with open(Path.home()/'/.sap-agent/session.json', 'w') as f:
 "
 ```
 
-### 相关文件
-
-- [SKILL.md](../SKILL.md) - 技能说明
-- [bapis.md](bapis.md) - BAPI 参考
-- [tables.md](tables.md) - 表参考
-- [mm.md](mm.md) - MM 模块工作流
-- [fi.md](fi.md) - FI 模块工作流
-- [bdc.md](bdc.md) - BDC 批量输入
-- [odata.md](odata.md) - OData/HTTP 替代方案
-
 ---
 
-**文档版本：** 2.0
-**合并自：** setup.md + first-time-setup.md
+**文档版本：** 3.0
+**更新时间：** 2026-03-19

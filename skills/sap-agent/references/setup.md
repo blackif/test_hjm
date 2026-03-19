@@ -1,9 +1,5 @@
 # SAP Agent 完整安装与配置指南
 
-**适用对象：** 第一次使用 SAP Agent 的用户
-
-**最后更新：** 2026-03-19
-
 ---
 
 ## 目录
@@ -55,15 +51,6 @@
 
 参照 `sdk/README.md` 文件执行安装。
 
-安装脚本位于 `scripts/setup_sdk.sh`，执行以下命令：
-
-```bash
-cd scripts
-bash setup_sdk.sh
-```
-
-或者手动安装，详见 `sdk/README.md`。
-
 ---
 
 ## 步骤 2：创建配置文件
@@ -83,7 +70,8 @@ cat > ~/.sap-agent/config.json << 'EOF'
   "initialized": true,
   "initialized_at": "2026-03-19T00:00:00Z",
   "manager-email": "your-email@example.com",
-  "sap": {
+  "sap-1": {
+    "directions": "对此 SAP 服务器的说明或备注",
     "mode": "saprouter",
     "ashost": "/H/<router-host>/S/<port>/H/<target-server>",
     "sysnr": "<2-digit-system-number>",
@@ -113,17 +101,52 @@ chmod 600 ~/.sap-agent/config.json
 | `initialized` | 初始化状态标识 | `true` / `false` |
 | `initialized_at` | 初始化时间戳（ISO 8601 格式） | `"2026-03-19T00:00:00Z"` |
 | `manager-email` | 管理员邮箱地址，用于接收通知 | `"admin@company.com"` |
-| `sap.mode` | SAP 连接方式 | `saprouter`（通过 SAProuter 连接）/ `direct`（直连 SAP 服务器）/ `msserver`（通过消息服务器连接） |
-| `sap.ashost` | SAP 目标主机地址或 SAProuter 路由字符串 | 直连模式：`"192.168.1.100"`；SAProuter 模式：`"/H/<路由器主机>/S/<路由器端口>/H/<目标服务器>"`，如 `"/H/router.company.com/S/3299/H/192.168.1.100"`；多跳路由：`"/H/outer-router/S/3299/H/inner-router/S/3299/H/sap-host"`；带路由密码：`"/H/router/S/3299/P/password/H/server"` |
-| `sap.sysnr` | SAP 系统编号（2 位数字） | `"10"` / `"01"` / `"42"` |
-| `sap.client` | SAP 集团代码（通常 3 位） | `"800"` / `"100"` / `"001"` |
-| `sap.sysid` | SAP 系统标识符（SID） | `"ED1"` / `"PRD"` / `"DEV"` |
-| `sap.lang` | 登录语言代码 | `"ZH"`（中文）/ `"EN"`（英文）/ `"DE"`（德文） |
-| `saprouter_host` | SAProuter 服务器主机名（仅 saprouter 模式） | `"router.company.com"` |
-| `saprouter_port` | SAProuter 服务端口（通常 3299） | `"3299"` |
+| `sap-1` | SAP 服务器配置对象（可配置多个，如 `sap-1`、`sap-2` 等，用于区分不同环境或服务器） | 见下方 SAP 配置属性 |
+| `sap-1.directions` | 对此 SAP 服务器的说明或备注，用于记录服务器用途、环境说明等信息 | `"生产环境 - 财务系统"` / `"测试环境 - MM 模块"` / `"DEV 开发系统"` |
+| `sap-1.mode` | SAP 连接方式 | `saprouter`（通过 SAProuter 连接）/ `direct`（直连 SAP 服务器）/ `msserver`（通过消息服务器连接） |
+| `sap-1.ashost` | SAP 目标主机地址或 SAProuter 路由字符串 | 直连模式：`"192.168.1.100"`；SAProuter 模式：`"/H/<路由器主机>/S/<路由器端口>/H/<目标服务器>"`，如 `"/H/router.company.com/S/3299/H/192.168.1.100"`；多跳路由：`"/H/outer-router/S/3299/H/inner-router/S/3299/H/sap-host"`；带路由密码：`"/H/router/S/3299/P/password/H/server"` |
+| `sap-1.sysnr` | SAP 系统编号（2 位数字） | `"10"` / `"01"` / `"42"` |
+| `sap-1.client` | SAP 集团代码（通常 3 位） | `"800"` / `"100"` / `"001"` |
+| `sap-1.sysid` | SAP 系统标识符（SID） | `"ED1"` / `"PRD"` / `"DEV"` |
+| `sap-1.lang` | 登录语言代码 | `"ZH"`（中文）/ `"EN"`（英文）/ `"DE"`（德文） |
+| `sap-1.saprouter_host` | SAProuter 服务器主机名（仅 saprouter 模式） | `"router.company.com"` |
+| `sap-1.saprouter_port` | SAProuter 服务端口（通常 3299） | `"3299"` |
 | `sdk.home` | SAP NW RFC SDK 安装路径 | `"/usr/local/sap/nwrfcsdk"` |
 | `sdk.version` | SDK 版本号 | `"7.50"` |
 | `sdk.installed` | SDK 安装状态标识 | `true` / `false` |
+
+**多服务器配置示例：**
+
+```json
+{
+  "version": "1.1",
+  "initialized": true,
+  "manager-email": "admin@company.com",
+  "sap-1": {
+    "directions": "生产环境 - 财务系统",
+    "mode": "saprouter",
+    "ashost": "/H/router-prod/S/3299/H/192.168.1.100",
+    "sysnr": "10",
+    "client": "800",
+    "sysid": "PRD",
+    "lang": "ZH"
+  },
+  "sap-2": {
+    "directions": "测试环境 - MM 模块",
+    "mode": "saprouter",
+    "ashost": "/H/router-test/S/3299/H/192.168.1.101",
+    "sysnr": "20",
+    "client": "100",
+    "sysid": "TST",
+    "lang": "ZH"
+  },
+  "sdk": {
+    "home": "/usr/local/sap/nwrfcsdk",
+    "version": "7.50",
+    "installed": true
+  }
+}
+```
 
 ---
 
@@ -420,5 +443,4 @@ with open(Path.home()/'/.sap-agent/session.json', 'w') as f:
 
 ---
 
-**文档版本：** 3.0
-**更新时间：** 2026-03-19
+**文档版本：** 3.1

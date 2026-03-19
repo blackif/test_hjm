@@ -72,7 +72,7 @@ python3 sap_service.py --host 127.0.0.1 --port 8765
 curl http://127.0.0.1:8765/health
 ```
 
-> 📖 **详细指南：** 查看 [references/first-time-setup.md](references/first-time-setup.md)
+> 📖 **详细指南：** 查看 [references/setup.md](references/setup.md)
 
 ---
 
@@ -379,11 +379,11 @@ crontab -l | grep -v sap-agent | crontab -
 
 ## Core SAP Operations
 
-→ See original operation code patterns in `references/operations.md`
-→ Module-specific: `references/mm.md`, `references/fi.md`
+→ Module-specific workflows: `references/mm.md`, `references/fi.md`
 → SAProuter connection params: `references/setup.md`
 → BAPI reference: `references/bapis.md`
 → Table reference: `references/tables.md`
+→ Batch input: `references/bdc.md`
 
 ---
 
@@ -519,11 +519,10 @@ Edit `~/.sap-agent/performance.json`:
 
 | File | Content |
 |------|---------|
-| `references/setup.md` | Setup guide (+ HTTP service) |
-| `references/operations.md` | RFC operations |
-| `references/bapis.md` | BAPI reference |
-| `references/tables.md` | Table reference |
-| `references/mm.md` | MM module workflows |
-| `references/fi.md` | FI module workflows |
-| `references/bdc.md` | BDC batch input |
-| `references/odata.md` | OData/HTTP alternative |
+| `references/setup.md` | 完整安装与配置指南 |
+| `references/bapis.md` | BAPI 参考 |
+| `references/tables.md` | 表参考 |
+| `references/mm.md` | MM 模块工作流 |
+| `references/fi.md` | FI 模块工作流 |
+| `references/bdc.md` | BDC 批量输入 |
+| `references/odata.md` | OData/HTTP 替代方案 |

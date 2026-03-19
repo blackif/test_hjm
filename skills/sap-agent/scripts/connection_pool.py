@@ -104,8 +104,7 @@ class ConnectionPool:
                     client=sap_config.get("client", "800"),
                     user=os.environ.get("SAP_USER", ""),
                     passwd=os.environ.get("SAP_PASSWORD", ""),
-                    lang=sap_config.get("lang", "ZH"),
-                    timeout=30
+                    lang=sap_config.get("lang", "ZH")
                 )
             else:
                 # 直连模式

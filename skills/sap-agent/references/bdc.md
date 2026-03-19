@@ -3,7 +3,7 @@
 BDC (Batch Data Communication) simulates SAP GUI screen-by-screen entry.
 Use when a business process has **no BAPI** or the BAPI is too restrictive.
 
-All BDC calls use `run_bdc()` from `references/operations.md`.
+All BDC calls use `run_bdc()` from the SAP session module.
 
 ---
 

@@ -88,7 +88,7 @@ pyrfc version: 3.4
 
 ## 相关文件
 
-- [../references/first-time-setup.md](../references/first-time-setup.md) - 首次安装指南
+- [../references/setup.md](../references/setup.md) - 完整安装指南
 - [../references/setup.md](../references/setup.md) - SDK 安装详细说明
 - [../scripts/setup_sdk.sh](../scripts/setup_sdk.sh) - 自动安装脚本
 

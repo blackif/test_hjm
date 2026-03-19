@@ -1,6 +1,6 @@
 # FI (Financial Accounting) Module Workflows
 
-All calls use `safe_call()` and `call_bapi()` from `references/operations.md`.
+All calls use `safe_call()` and `call_bapi()` from the SAP session module.
 
 ---
 

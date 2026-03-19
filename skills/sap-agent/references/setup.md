@@ -9,11 +9,11 @@
 ## 目录
 
 1. [前置条件](#前置条件)
-2. [步骤 1：安装 SAP NW RFC SDK](#步骤-1 安装-sap-nw-rfc-sdk)
-3. [步骤 2：创建配置文件](#步骤-2 创建配置文件)
-4. [步骤 3：安装 HTTP 服务依赖](#步骤-3 安装-http-服务依赖)
-5. [步骤 4：启动 HTTP 服务](#步骤-4 启动-http-服务)
-6. [步骤 5：测试连接](#步骤-5 测试连接)
+2. [步骤 1：安装 SAP NW RFC SDK](#步骤 1：安装 SAP NW RFC SDK)
+3. [步骤 2：创建配置文件](#步骤 2：创建配置文件)
+4. [步骤 3：安装 HTTP 服务依赖](#步骤 3：安装 HTTP 服务依赖)
+5. [步骤 4：启动 HTTP 服务](#步骤 4：启动 HTTP 服务)
+6. [步骤 5：测试连接](#步骤 5：测试连接)
 7. [高级配置](#高级配置)
 8. [常见问题](#常见问题)
 
@@ -53,7 +53,16 @@
 
 ## 步骤 1：安装 SAP NW RFC SDK
 
-参照 [sdk/README.md](sdk/README.md) 文件执行安装。
+参照 `sdk/README.md` 文件执行安装。
+
+安装脚本位于 `scripts/setup_sdk.sh`，执行以下命令：
+
+```bash
+cd scripts
+bash setup_sdk.sh
+```
+
+或者手动安装，详见 `sdk/README.md`。
 
 ---
 
@@ -74,24 +83,15 @@ cat > ~/.sap-agent/config.json << 'EOF'
   "initialized": true,
   "initialized_at": "2026-03-19T00:00:00Z",
   "manager-email": "your-email@example.com",
-  "email": {
-    "adress": "your-email@example.com",
-    "smtp_port": 587,
-    "smtp_use_tls": true,
-    "smtp_use_ssl": false,
-    "smtp_user": "",
-    "smtp_password_enc": "",
-    "verified": false
-  },
   "sap": {
     "mode": "saprouter",
-    "ashost": "/H/your-saprouter/S/3299/H/your-server",
-    "sysnr": "YOUR SYSNR",
-    "client": "your client",
-    "sysid": "your sysid",
-    "lang": "your lang",
-    "saprouter_host": "your-saprouter",
-    "saprouter_port": "3299"
+    "ashost": "/H/<router-host>/S/<port>/H/<target-server>",
+    "sysnr": "<2-digit-system-number>",
+    "client": "<client-code>",
+    "sysid": "<system-id>",
+    "lang": "<language>",
+    "saprouter_host": "<router-host>",
+    "saprouter_port": "<port>"
   },
   "sdk": {
     "home": "/usr/local/sap/nwrfcsdk",
@@ -109,35 +109,21 @@ chmod 600 ~/.sap-agent/config.json
 
 | 参数 | 说明 | 示例值 |
 |------|------|--------|
-| `manager-email` | 管理员邮箱地址 | `admin@company.com` |
-| `email.adress` | Agent 发件邮箱 | `agent@company.com` |
-| `sap.mode` | 连接方式 | `saprouter` / `direct` / `msserver` |
-| `sap.ashost` | SAProuter 连接字符串 | `/H/vs064.HAND-CHINA.COM/S/3299/H/192.168.11.34` |
-| `sap.sysnr` | 系统编号（2 位） | `10` |
-| `sap.client` | 集团代码 | `800` |
-| `sap.sysid` | 系统 ID | `ED1` |
-| `sap.lang` | 登录语言 | `ZH` / `EN` |
-
-### 2.4 SAProuter 连接字符串格式
-
-```
-/H/<路由器主机>/S/<路由器端口>/H/<目标服务器>
-```
-
-**示例：**
-```
-/H/vs064.HAND-CHINA.COM/S/3299/H/192.168.11.34
-```
-
-**带路由密码：**
-```
-/H/router/S/3299/P/password/H/server
-```
-
-**多跳 SAProuter：**
-```
-/H/outer-router/S/3299/H/inner-router/S/3299/H/sap-host
-```
+| `version` | 配置文件版本号，用于兼容性检查 | `"1.1"` |
+| `initialized` | 初始化状态标识 | `true` / `false` |
+| `initialized_at` | 初始化时间戳（ISO 8601 格式） | `"2026-03-19T00:00:00Z"` |
+| `manager-email` | 管理员邮箱地址，用于接收通知 | `"admin@company.com"` |
+| `sap.mode` | SAP 连接方式 | `saprouter`（通过 SAProuter 连接）/ `direct`（直连 SAP 服务器）/ `msserver`（通过消息服务器连接） |
+| `sap.ashost` | SAP 目标主机地址或 SAProuter 路由字符串 | 直连模式：`"192.168.1.100"`；SAProuter 模式：`"/H/<路由器主机>/S/<路由器端口>/H/<目标服务器>"`，如 `"/H/router.company.com/S/3299/H/192.168.1.100"`；多跳路由：`"/H/outer-router/S/3299/H/inner-router/S/3299/H/sap-host"`；带路由密码：`"/H/router/S/3299/P/password/H/server"` |
+| `sap.sysnr` | SAP 系统编号（2 位数字） | `"10"` / `"01"` / `"42"` |
+| `sap.client` | SAP 集团代码（通常 3 位） | `"800"` / `"100"` / `"001"` |
+| `sap.sysid` | SAP 系统标识符（SID） | `"ED1"` / `"PRD"` / `"DEV"` |
+| `sap.lang` | 登录语言代码 | `"ZH"`（中文）/ `"EN"`（英文）/ `"DE"`（德文） |
+| `saprouter_host` | SAProuter 服务器主机名（仅 saprouter 模式） | `"router.company.com"` |
+| `saprouter_port` | SAProuter 服务端口（通常 3299） | `"3299"` |
+| `sdk.home` | SAP NW RFC SDK 安装路径 | `"/usr/local/sap/nwrfcsdk"` |
+| `sdk.version` | SDK 版本号 | `"7.50"` |
+| `sdk.installed` | SDK 安装状态标识 | `true` / `false` |
 
 ---
 
@@ -166,7 +152,7 @@ export LD_LIBRARY_PATH=/usr/local/sap/nwrfcsdk/lib
 ### 4.2 启动服务
 
 ```bash
-cd /home/ubuntu/.nvm/versions/node/v24.14.0/lib/node_modules/openclaw/skills/public/sap-agent/scripts
+cd <sap-agent 技能目录>/scripts
 python3 sap_service.py --host 127.0.0.1 --port 8765
 ```
 
@@ -197,10 +183,10 @@ After=network.target
 
 [Service]
 Type=simple
-User=ubuntu
+User=<当前用户名>
 Environment="SAPNWRFC_HOME=/usr/local/sap/nwrfcsdk"
 Environment="LD_LIBRARY_PATH=/usr/local/sap/nwrfcsdk/lib"
-WorkingDirectory=/home/ubuntu/.nvm/versions/node/v24.14.0/lib/node_modules/openclaw/skills/public/sap-agent/scripts
+WorkingDirectory=<sap-agent 技能目录>/scripts
 ExecStart=/usr/bin/python3 sap_service.py --host 127.0.0.1 --port 8765
 Restart=always
 
@@ -213,6 +199,10 @@ sudo systemctl enable sap-agent
 sudo systemctl start sap-agent
 sudo systemctl status sap-agent
 ```
+
+**路径说明：**
+- `<当前用户名>`：替换为实际用户名（如 `ubuntu`）
+- `<sap-agent 技能目录>`：替换为 sap-agent skill 的实际路径（如 `/home/ubuntu/.nvm/versions/node/v24.14.0/lib/node_modules/openclaw/skills/public/sap-agent`）
 
 ---
 

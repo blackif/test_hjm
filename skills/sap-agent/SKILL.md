@@ -38,9 +38,11 @@ state = result.stdout.strip()
 | 返回状态 | 操作 |
 |---|---|
 | `first_run` | → 运行首次运行向导 |
-| `needs_login` | → 运行 SAP 登录 |
+| `needs_login` | → 检查 HTTP 服务状态 → 运行 SAP 登录 |
 | `connected` | → 继续执行操作 |
 | `force_disconnect` | → 告知用户连接已自动关闭，→ 运行 SAP 登录 |
+
+**注意：** 如果启用了 HTTP 服务模式，在 `needs_login` 时应先检查服务状态，确保登录后可以使用连接池。详见 `references/setup.md`。
 
 ---
 
@@ -48,58 +50,39 @@ state = result.stdout.strip()
 
 当 `config.json` 不存在时触发。**按顺序**引导用户完成所有步骤。
 
-### 步骤 1 — 检查并收集 SMTP 设置
+### 步骤 1 — 检查邮箱配置
 
-告知用户：
-> "这是首次使用 SAP Agent。首先需要配置邮件服务，用于后续发送验证码和通知。"
+先检查 `config.json` 中是否已配置 `manager-email` 字段：
 
-通过对话收集：
+```python
+from scripts.config_manager import load_config
+config = load_config()
+if config.get("manager-email"):
+    # 已配置，跳过此步骤
+    proceed_to_step_2()
+else:
+    # 未配置，收集邮箱
+    collect_email()
+```
+
+如未配置，通过对话收集：
 ```
 SMTP 服务器地址 (例：smtp.office365.com):
 SMTP 端口 (常用：587=TLS, 465=SSL, 25):
 加密方式：TLS / SSL / 无
 发件邮箱地址：
 发件邮箱密码：
+管理员邮箱地址（用于接收通知）:
 ```
 
-使用 `scripts/email_verify.py` 在继续前测试 SMTP：
+使用 `scripts/email_verify.py` 测试 SMTP 连接：
 ```python
 from scripts.email_verify import test_smtp_connection
 ok, msg = test_smtp_connection(smtp_config)
 # 如果 ok 为假 → 告知用户错误，请求重新输入
 ```
 
-### 步骤 2 — 收集接收邮箱并发送验证码
-
-```
-您的邮箱地址 (用于接收验证码):
-```
-
-然后调用：
-```python
-from scripts.email_verify import send_otp
-otp_id = send_otp(smtp_config, recipient_email)
-# 返回 otp_id；实际 6 位验证码保存到 ~/.sap-agent/.otp_tmp
-```
-
-告知用户：
-> "验证码已发送至 [email]，请在 10 分钟内输入 6 位数字验证码："
-
-### 步骤 3 — 验证验证码
-
-```python
-from scripts.email_verify import verify_otp
-result = verify_otp(user_input_code)
-# 返回："ok" | "expired" | "wrong"
-```
-
-| 结果 | 操作 |
-|---|---|
-| `ok` | 继续步骤 4 |
-| `wrong` | 告知用户验证码错误，允许最多 3 次重试，然后提供重发选项 |
-| `expired` | 告知用户验证码已过期（>10 分钟），提供重发选项 |
-
-### 步骤 4 — 收集 SAP 系统参数
+### 步骤 2 — 收集 SAP 系统参数
 
 询问：
 ```
@@ -126,16 +109,41 @@ SAProuter 路由密码 (没有则留空):
 登录组 (group, 例：PUBLIC):
 ```
 
-### 步骤 5 — 保存配置并安装定时任务
+### 步骤 3 — 保存配置并启动 HTTP 服务
 
 ```python
-from scripts.config_manager import save_config, install_cron
+from scripts.config_manager import save_config
 save_config(email_config, sap_config)
-install_cron()   # 安装：0 0 * * * python3 ~/.sap-agent/scripts/auto_disconnect.py
+```
+
+**启动 HTTP 服务（推荐）：**
+
+告知用户：
+> "✅ 配置已保存。现在启动 HTTP 服务以启用连接池优化（可避免每次登录等待 50s）。"
+
+```bash
+# 安装依赖（如未安装）
+pip3 install --break-system-packages fastapi uvicorn
+
+# 启动服务
+export SAPNWRFC_HOME=/usr/local/sap/nwrfcsdk
+export LD_LIBRARY_PATH=$SAPNWRFC_HOME/lib
+python3 scripts/sap_service.py --host 127.0.0.1 --port 8765
+```
+
+**配置空闲超时自动断开：**
+
+在 `~/.sap-agent/performance.json` 中设置：
+```json
+{
+  "security": {
+    "idle_timeout_minutes": 60
+  }
+}
 ```
 
 告知用户：
-> "✅ 配置已保存。已设置每日凌晨 00:00 自动断开 SAP 连接。"
+> "✅ HTTP 服务已启动。已设置 60 分钟无操作自动断开连接。"
 > "现在请提供您的 SAP 用户名和密码以连接系统。"
 
 → 继续到 SAP 登录
@@ -212,33 +220,43 @@ disconnect()
 
 根据用户意图路由到正确的脚本：
 
-| 用户意图 | 操作 | 参考 |
-|---|---|---|
-| 查数据 / 查表 | `read_sap_table()` | 见下方核心 SAP 操作 |
-| 创建/修改业务单据 | `call_bapi()` 并确认 | 见下方核心 SAP 操作 |
-| 没有 BAPI 的事务 | `run_bdc()` | 见下方核心 SAP 操作 |
-| 查库存/物料 | MM 工作流 | 见下方核心 SAP 操作 |
-| 过账/凭证 | FI 工作流 | 见下方核心 SAP 操作 |
+| 用户意图 | 操作 |
+|---|---|
+| 查数据 / 查表 | `read_sap_table()` |
+| 创建/修改业务单据 | `call_bapi()` 并确认 |
+| 没有 BAPI 的事务 | `run_bdc()` |
+| 查库存/物料 | MM 工作流 |
+| 过账/凭证 | FI 工作流 |
 
 > ⚠️ **黄金规则**: 任何创建/修改/过账/删除操作必须在提交（`BAPI_TRANSACTION_COMMIT`）前显示摘要并请求用户明确确认。
 
 ---
 
-## 自动断开（定时任务）
+## 自动断开（空闲超时）
 
-`scripts/auto_disconnect.py` 安装为定时任务：`0 0 * * *`
+**空闲超时机制：**
 
-它设置 `session.json → force_disconnect: true, reason: "scheduled_midnight"`。
-下次代理操作时，`check_session()` 检测到此标志并阻止 SAP 调用，直到用户重新认证。
+1. 在 `session.json` 中记录 `last_activity` 时间戳
+2. 每次 SAP 操作前检查空闲时间
+3. 超过设定时间（默认 60 分钟）无操作自动设置 `force_disconnect: true`
 
-手动检查定时任务：
-```bash
-crontab -l | grep sap-agent
+**配置超时时间：**
+
+编辑 `~/.sap-agent/performance.json`：
+```json
+{
+  "security": {
+    "idle_timeout_minutes": 60
+  }
+}
 ```
 
-手动移除：
-```bash
-crontab -l | grep -v sap-agent | crontab -
+**手动断开：**
+
+使用断开连接关键词（见上方列表）或运行：
+```python
+from scripts.sap_session import disconnect
+disconnect()
 ```
 
 ---
@@ -257,105 +275,12 @@ crontab -l | grep -v sap-agent | crontab -
 
 ## 性能优化（HTTP 服务模式）
 
-对于大型查询和频繁操作，使用带连接池的 HTTP 服务模式以获得更好性能。
+**详细说明请查看 `references/setup.md`**
 
-### 启动 HTTP 服务
-
-```bash
-# 安装依赖
-pip3 install --break-system-packages fastapi uvicorn
-
-# 启动服务
-python3 scripts/sap_service.py --host 127.0.0.1 --port 8765
-```
-
-### API 端点
-
-| 端点 | 方法 | 说明 |
-|----------|--------|-------------|
-| `/health` | GET | 健康检查 |
-| `/stats` | GET | 服务统计 |
-| `/connect` | POST | 建立 SAP 连接 |
-| `/disconnect` | POST | 关闭连接 |
-| `/call` | POST | 调用 RFC 函数 |
-| `/read_table` | POST | 查询 SAP 表（优化版） |
-| `/batch` | POST | 批量操作 |
-| `/shutdown` | POST | 关闭服务 |
-
-### 示例：连接并查询
-
-```bash
-# 1. 连接
-SESSION=$(curl -s -X POST http://127.0.0.1:8765/connect \
-  -H "Content-Type: application/json" \
-  -d '{"user": "10437", "password": "your_password"}' | jq -r '.session_id')
-
-# 2. 查询表
-curl -s -X POST http://127.0.0.1:8765/read_table \
-  -H "X-Session-ID: $SESSION" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "table_name": "T001",
-    "fields": ["BUKRS", "BUTXT", "WAERS"],
-    "rowcount": 100
-  }'
-
-# 3. 断开
-curl -s -X POST http://127.0.0.1:8765/disconnect \
-  -H "X-Session-ID: $SESSION"
-```
-
-### Python 客户端示例
-
-```python
-import requests
-
-# 连接
-resp = requests.post('http://127.0.0.1:8765/connect', json={
-    'user': '10437',
-    'password': 'your_password'
-})
-session_id = resp.json()['session_id']
-
-# 使用会话查询
-headers = {'X-Session-ID': session_id}
-resp = requests.post('http://127.0.0.1:8765/read_table',
-    headers=headers,
-    json={
-        'table_name': 'T001',
-        'fields': ['BUKRS', 'BUTXT'],
-        'rowcount': 100
-    }
-)
-data = resp.json()
-
-# 断开
-requests.post('http://127.0.0.1:8765/disconnect', headers=headers)
-```
-
-### 性能对比
-
-| 操作 | 直接 RFC | HTTP 服务 | 提升 |
-|-----------|-----------|--------------|-------------|
-| 单次查询 | 0.5-2 秒 | 0.1-0.5 秒 | 4 倍 |
-| 100 行批量 | 50-200 秒 | 5-10 秒 | 10-20 倍 |
-| 连接复用 | ❌ | ✅ | 不适用 |
-
-### 配置
-
-编辑 `~/.sap-agent/performance.json`：
-
-```json
-{
-  "connection_pool": {
-    "max_connections": 5,
-    "idle_timeout": 300
-  },
-  "batch": {
-    "max_rows_per_call": 1000
-  }
-}
-```
+简要说明：
+- HTTP 服务提供连接池功能，避免每次查询都重新登录
+- 登录后连接保持在池中，后续查询直接使用，速度提升 4-20 倍
+- 建议在首次运行向导的步骤 3 中启动服务
 
 ---
 
@@ -365,26 +290,26 @@ requests.post('http://127.0.0.1:8765/disconnect', headers=headers)
 
 | 文件 | 用途 |
 |------|---------|
-| `scripts/init_check.py` | 会话状态检查 |
+| `scripts/init_check.py` | 会话状态检查（含 HTTP 服务健康检查） |
 | `scripts/sap_session.py` | 连接管理（+ 连接池集成） |
 | `scripts/config_manager.py` | 配置加密/解密 |
-| `scripts/email_verify.py` | 邮箱验证 |
-| `scripts/auto_disconnect.py` | 定时断开 |
+| `scripts/email_verify.py` | SMTP 连接测试 |
+| `scripts/auto_disconnect.py` | 空闲超时检查 |
 | `scripts/setup_sdk.sh` | SDK 安装 |
-| `scripts/connection_pool.py` | **新增** 连接池 |
-| `scripts/sap_service.py` | **新增** HTTP 服务 |
-| `scripts/batch_operations.py` | **新增** 批量操作 |
+| `scripts/connection_pool.py` | 连接池管理 |
+| `scripts/sap_service.py` | HTTP 服务 |
+| `scripts/batch_operations.py` | 批量操作 |
 
 ### 配置文件
 
 | 文件 | 用途 |
 |------|---------|
 | `~/.sap-agent/config.json` | 主配置 |
-| `~/.sap-agent/session.json` | 会话状态 |
-| `~/.sap-agent/performance.json` | **新增** 性能设置 |
+| `~/.sap-agent/session.json` | 会话状态（含 last_activity） |
+| `~/.sap-agent/performance.json` | 性能和安全设置（含 idle_timeout_minutes） |
 
 ### 参考文档
 
 | 文件 | 内容 |
 |------|---------|
-| `references/setup.md` | 完整安装与配置指南 |
+| `references/setup.md` | 完整安装与配置指南（含 HTTP 服务详细说明） |

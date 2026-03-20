@@ -54,6 +54,8 @@ first_run → open_http → sap_login → connected → closed_sap → sap_login
 
 当入口：状态机返回状态是 `first_run` 时运行首次运行向导。**按顺序**引导用户完成所有步骤。
 
+> 参考文档：`references/setup.md` - 步骤 2：创建配置文件
+
 ### 步骤 1 — 检查邮箱配置
 
 先检查 `config.json` 中是否已配置 SMTP 和发件邮箱：
@@ -95,6 +97,8 @@ ok, msg = test_smtp_connection(smtp_config)
 
 ### 步骤 3 — 收集 SAP 系统参数
 
+**方式一：对话收集**（当前）
+
 询问：
 ```
 SAP 系统：ECC / S/4HANA / C/4 Cloud
@@ -120,6 +124,14 @@ SAP 系统：ECC / S/4HANA / C/4 Cloud
 选填>>登录组 (group, 例：PUBLIC):
 ```
 
+**方式二：Web UI 收集**（计划中，Issue #44）
+
+使用 Gradio 实现可视化表单：
+- 创建 `scripts/ui_config.py`
+- 字段带说明和验证
+- 支持必填/选填标识
+- 提交后保存到 config.json
+
 ### 步骤 4 — 保存配置
 
 ```python
@@ -143,11 +155,19 @@ export LD_LIBRARY_PATH=$SAPNWRFC_HOME/lib
 python3 scripts/sap_service.py --host 127.0.0.1 --port 8765
 ```
 
+**说明（Issue #46）：**
+- HTTP 服务启动后自动启用连接池
+- 连接池是 HTTP 服务的核心功能
+- 服务持续运行，连接池保持活跃
+- 详细配置参考 `references/setup.md` - 高级配置：连接池使用
+
 → 继续到 SAP 登录
 
 ---
 
 ## SAP 登录
+
+**方式一：对话收集**（当前）
 
 加载配置，询问：
 ```
@@ -161,6 +181,14 @@ python3 scripts/sap_service.py --host 127.0.0.1 --port 8765
 from scripts.sap_session import connect
 result = connect(config, sap_user, sap_password, client, lang)
 ```
+
+**方式二：Web UI 收集**（计划中，Issue #47）
+
+使用 Gradio 实现登录表单：
+- 创建 `scripts/ui_login.py`
+- 密码隐藏输入，更安全
+- 支持记住 client/lang 偏好（不保存密码）
+- 提交后调用 connect() 登录
 
 **成功时** → 告知用户：
 > "✅ 已成功连接到 SAP 系统 [SID] / 集团 [CLIENT]
@@ -194,6 +222,11 @@ state = check_session()   # "connected" | "closed_sap" | "disconnected"
 - HTTP 已运行 + SAP 已登录 → 执行操作
 
 如果为 `closed_sap` 或 `disconnected` → 告知用户并转到 SAP 登录。
+
+**连接池说明（Issue #46）：**
+- 操作前通过 check_session() 检查 HTTP 服务和连接池状态
+- 连接池中的连接可复用，避免重复登录
+- 60 分钟无操作断开 SAP 连接（回收到池中），HTTP 服务保持运行
 
 ### 断开连接关键词检测
 
@@ -248,4 +281,4 @@ disconnect()
 
 | 文件 | 内容 |
 |------|---------|
-| `references/setup.md` | 完整安装与配置指南 |
+| `references/setup.md` | 完整安装与配置指南（含连接池详细说明） |

@@ -223,7 +223,7 @@ state = check_session()   # "connected" | "closed_sap" | "disconnected"
 
 如果为 `closed_sap` 或 `disconnected` → 告知用户并转到 SAP 登录。
 
-**连接池说明（Issue #46）：**
+**连接池说明：**
 - 操作前通过 check_session() 检查 HTTP 服务和连接池状态
 - 连接池中的连接可复用，避免重复登录
 - 60 分钟无操作断开 SAP 连接（回收到池中），HTTP 服务保持运行

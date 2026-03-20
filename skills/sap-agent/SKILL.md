@@ -22,7 +22,7 @@ compatibility:
 每次激活此技能时，**首先**运行此决策树：
 
 ```
-scripts/init_check.py   →   返回："first_run" | "open_http" | "sap_login" | "connected" | "closed_sap" | "closed_http"
+scripts/init_check.py   →   返回："first_run" | "open_http" | "sap_login" | "connected" | "closed_sap"
 ```
 
 ```python
@@ -38,10 +38,10 @@ state = result.stdout.strip()
 | 返回状态 | 操作 |
 |---|---|
 | `first_run` | → 运行首次运行向导 |
-| `open_http` | → 检查/启动 HTTP 服务（强制启用） |
-| `sap_login` | → SAP 登录（用户名密码验证） |
+| `open_http` | → 启动 HTTP 服务（强制启用） |
+| `sap_login` | → SAP 登录 |
 | `connected` | → 继续执行操作 |
-| `closed_sap` | → SAP 已退出（空闲超时或手动断开），→ 运行 SAP 登录 |
+| `closed_sap` | → SAP 退出，→ 运行 SAP 登录 |
 
 **状态流转：**
 ```
@@ -52,7 +52,7 @@ first_run → open_http → sap_login → connected → closed_sap → sap_login
 
 ## 首次运行向导
 
-当 `config.json` 不存在时触发。**按顺序**引导用户完成所有步骤。
+当入口：状态机返回状态是 `first_run` 时运行首次运行向导。**按顺序**引导用户完成所有步骤。
 
 ### 步骤 1 — 检查邮箱配置
 
@@ -97,40 +97,41 @@ ok, msg = test_smtp_connection(smtp_config)
 
 询问：
 ```
-SAP 系统类型：ECC / S/4HANA On-Prem / S/4HANA Cloud
-连接方式：直连 (direct) / SAProuter / 消息服务器 (msserver)
-SAP 应用服务器 IP 或主机名:
-系统编号 (sysnr, 例：00):
-集团代码 (client, 例：100):
-系统 ID (SID, 例：PRD):
-语言 (ZH / EN):
+SAP 系统：ECC / S/4HANA / C/4 Cloud
+
+必要>>连接方式：直连 / SAProuter / 消息服务器
+
+必要>>应用服务器 (host,例：192.168.1.100):
+
+必要>>系统编号 (sysnr, 例：00):
+
+必要>>系统 ID (sysid, 例：PRD):
+
+选填>>SAProuter:
+
+选填>>SAProuter 端口 (默认 3299):
+
+选填>>SAProuter 路由密码:
+
+选填>>消息服务器主机名:
+
+选填>>消息服务器端口 (msserv, 例：3600):
+
+选填>>登录组 (group, 例：PUBLIC):
 ```
 
-如果 mode = `saprouter`，还需询问：
-```
-SAProuter 主机名/IP:
-SAProuter 端口 (默认 3299):
-SAProuter 路由密码 (没有则留空):
-```
-
-如果 mode = `msserver`，还需询问：
-```
-消息服务器主机名:
-消息服务器端口 (msserv, 例：3600):
-登录组 (group, 例：PUBLIC):
-```
-
-### 步骤 4 — 保存配置并启动 HTTP 服务
+### 步骤 4 — 保存配置
 
 ```python
 from scripts.config_manager import save_config
 save_config(email_config, sap_config)
 ```
 
-**启动 HTTP 服务（强制）：**
+→ 继续到 启动 HTTP 服务
 
-告知用户：
-> "✅ 配置已保存。现在启动 HTTP 服务以启用连接池优化（可避免每次登录等待 50s）。"
+---
+
+## 启动 HTTP 服务（强制启用）
 
 ```bash
 # 安装依赖（如未安装）
@@ -142,34 +143,23 @@ export LD_LIBRARY_PATH=$SAPNWRFC_HOME/lib
 python3 scripts/sap_service.py --host 127.0.0.1 --port 8765
 ```
 
-**配置空闲超时自动断开：**
-
-在 `~/.sap-agent/performance.json` 中设置：
-```json
-{
-  "security": {
-    "idle_timeout_minutes": 60
-  }
-}
-```
-
-告知用户：
-> "✅ HTTP 服务已启动。已设置 60 分钟无操作自动断开连接。"
-> "现在请提供您的 SAP 用户名和密码以连接系统。"
-
 → 继续到 SAP 登录
 
 ---
 
 ## SAP 登录
 
-加载配置，仅向用户询问**用户名和密码**（绝不保存）：
-
-> "请输入您的 SAP 用户名和密码（仅用于本次连接，不会保存）："
+加载配置，询问：
+```
+集团代码 (client, 例：100):
+用户名 (user):
+密码 (pwd):
+语言 (lang，例：ZH):
+```
 
 ```python
 from scripts.sap_session import connect
-result = connect(config, sap_user, sap_password)
+result = connect(config, sap_user, sap_password, client, lang)
 ```
 
 **成功时** → 告知用户：
@@ -197,6 +187,11 @@ result = connect(config, sap_user, sap_password)
 from scripts.sap_session import check_session
 state = check_session()   # "connected" | "closed_sap" | "disconnected"
 ```
+
+**状态检查逻辑：**
+- HTTP 未运行 + SAP 未登录 → 启动 HTTP 服务 → SAP 登录
+- HTTP 已运行 + SAP 未登录 → SAP 登录
+- HTTP 已运行 + SAP 已登录 → 执行操作
 
 如果为 `closed_sap` 或 `disconnected` → 告知用户并转到 SAP 登录。
 
@@ -227,70 +222,6 @@ disconnect()
 
 **不要**在断开连接后的同一条消息中执行任何 SAP 操作。
 
-### 操作路由
-
-根据用户意图路由到正确的脚本：
-
-| 用户意图 | 操作 |
-|---|---|
-| 查数据 / 查表 | `read_sap_table()` |
-| 创建/修改业务单据 | `call_bapi()` 并确认 |
-| 没有 BAPI 的事务 | `run_bdc()` |
-| 查库存/物料 | MM 工作流 |
-| 过账/凭证 | FI 工作流 |
-
-> ⚠️ **黄金规则**: 任何创建/修改/过账/删除操作必须在提交（`BAPI_TRANSACTION_COMMIT`）前显示摘要并请求用户明确确认。
-
----
-
-## 自动断开（空闲超时）
-
-**空闲超时机制：**
-
-1. 在 `session.json` 中记录 `last_activity` 时间戳
-2. 每次 SAP 操作前检查空闲时间
-3. 超过设定时间（默认 60 分钟）无操作自动设置 `closed_sap` 状态
-
-**配置超时时间：**
-
-编辑 `~/.sap-agent/performance.json`：
-```json
-{
-  "security": {
-    "idle_timeout_minutes": 60
-  }
-}
-```
-
-**手动断开：**
-
-使用断开连接关键词（见上方列表）或运行：
-```python
-from scripts.sap_session import disconnect
-disconnect()
-```
-
----
-
-## 核心 SAP 操作
-
-→ 表查询：使用 `read_sap_table()` 函数，支持字段选择、条件过滤、分页
-→ BAPI 调用：使用 `call_bapi()` 函数，支持参数传递、返回消息处理、事务提交
-→ BDC 批量输入：使用 `run_bdc()` 函数，用于无 BAPI 的事务自动化
-→ MM 模块：库存查询、物料主数据、采购订单、收货过账
-→ FI 模块：会计凭证过账、科目余额查询、付款处理
-
-详细工作流参考 `references/setup.md`。
-
----
-
-## 性能优化（HTTP 服务模式）
-
-简要说明：
-- HTTP 服务提供连接池功能，避免每次查询都重新登录
-- 登录后连接保持在池中，后续查询直接使用，速度提升 4-20 倍
-- 首次运行向导的步骤 4 中强制启动服务
-
 ---
 
 ## 文件参考
@@ -303,22 +234,18 @@ disconnect()
 | `scripts/sap_session.py` | 连接管理（+ 连接池集成） |
 | `scripts/config_manager.py` | 配置加密/解密 |
 | `scripts/email_verify.py` | SMTP 连接测试 |
-| `scripts/auto_disconnect.py` | 空闲超时检查 |
 | `scripts/setup_sdk.sh` | SDK 安装 |
-| `scripts/connection_pool.py` | 连接池管理 |
 | `scripts/sap_service.py` | HTTP 服务 |
-| `scripts/batch_operations.py` | 批量操作 |
 
 ### 配置文件
 
 | 文件 | 用途 |
 |------|---------|
 | `~/.sap-agent/config.json` | 主配置 |
-| `~/.sap-agent/session.json` | 会话状态（含 last_activity） |
-| `~/.sap-agent/performance.json` | 性能和安全设置（含 idle_timeout_minutes） |
+| `~/.sap-agent/session.json` | 会话状态 |
 
 ### 参考文档
 
 | 文件 | 内容 |
 |------|---------|
-| `references/setup.md` | 完整安装与配置指南（含 HTTP 服务详细说明） |
+| `references/setup.md` | 完整安装与配置指南 |

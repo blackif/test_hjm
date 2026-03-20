@@ -5,11 +5,11 @@
 ## 目录
 
 1. [前置条件](#前置条件)
-2. [步骤 1：安装 SAP NW RFC SDK](#步骤 1：安装 SAP NW RFC SDK)
-3. [步骤 2：创建配置文件](#步骤 2：创建配置文件)
-4. [步骤 3：安装 HTTP 服务依赖](#步骤 3：安装 HTTP 服务依赖)
-5. [步骤 4：启动 HTTP 服务](#步骤 4：启动 HTTP 服务)
-6. [步骤 5：测试连接](#步骤 5：测试连接)
+2. [安装 SAP NW RFC SDK](#安装 SAP NW RFC SDK)
+3. [创建配置文件](#创建配置文件)
+4. [安装 HTTP 服务依赖](#安装 HTTP 服务依赖)
+5. [启动 HTTP 服务](#启动 HTTP 服务)
+6. [测试连接](#测试连接)
 7. [高级配置](#高级配置)
 8. [常见问题](#常见问题)
 
@@ -48,13 +48,13 @@
 
 ---
 
-## 步骤 1：安装 SAP NW RFC SDK
+## 安装 SAP NW RFC SDK
 
 参照 `sdk/README.md` 文件执行安装。
 
 ---
 
-## 步骤 2：创建配置文件
+## 创建配置文件
 
 ### 2.1 创建配置目录
 
@@ -143,7 +143,7 @@ chmod 600 ~/.sap-agent/config.json
 
 ---
 
-## 步骤 3：安装 HTTP 服务依赖
+## 安装 HTTP 服务依赖
 
 ```bash
 pip3 install --break-system-packages fastapi uvicorn
@@ -156,7 +156,7 @@ python3 -c "import fastapi; print('FastAPI:', fastapi.__version__)"
 
 ---
 
-## 步骤 4：启动 HTTP 服务
+## 启动 HTTP 服务
 
 ### 4.1 设置环境变量
 
@@ -222,7 +222,7 @@ sudo systemctl status sap-agent
 
 ---
 
-## 步骤 5：测试连接
+## 测试连接
 
 ### 5.1 健康检查
 

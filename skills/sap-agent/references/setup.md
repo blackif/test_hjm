@@ -56,13 +56,13 @@
 
 ## 创建配置文件
 
-### 2.1 创建配置目录
+### 创建配置目录
 
 ```bash
 mkdir -p ~/.sap-agent
 ```
 
-### 2.2 创建主配置文件
+### 创建主配置文件
 
 ```bash
 cat > ~/.sap-agent/config.json << 'EOF'
@@ -92,7 +92,7 @@ EOF
 chmod 600 ~/.sap-agent/config.json
 ```
 
-### 2.3 配置参数说明
+### 配置参数说明
 
 | 参数 | 说明 | 示例值 |
 |------|------|--------|
@@ -143,7 +143,7 @@ chmod 600 ~/.sap-agent/config.json
 
 ---
 
-## 安装 HTTP 服务依赖
+## HTTP 服务依赖
 
 ```bash
 pip3 install --break-system-packages fastapi uvicorn
@@ -158,14 +158,14 @@ python3 -c "import fastapi; print('FastAPI:', fastapi.__version__)"
 
 ## 启动 HTTP 服务
 
-### 4.1 设置环境变量
+### 设置环境变量
 
 ```bash
 export SAPNWRFC_HOME=/usr/local/sap/nwrfcsdk
 export LD_LIBRARY_PATH=/usr/local/sap/nwrfcsdk/lib
 ```
 
-### 4.2 启动服务
+### 启动服务
 
 ```bash
 cd <sap-agent 技能目录>/scripts
@@ -183,13 +183,13 @@ INFO:     Application startup complete.
 INFO:     Uvicorn running on http://127.0.0.1:8765
 ```
 
-### 4.3 后台运行（可选）
+### 后台运行（可选）
 
 ```bash
 nohup python3 sap_service.py --host 127.0.0.1 --port 8765 > /tmp/sap_service.log 2>&1 &
 ```
 
-### 4.4 配置 systemd 服务（推荐）
+### 配置 systemd 服务（推荐）
 
 ```bash
 sudo tee /etc/systemd/system/sap-agent.service > /dev/null << 'EOF'
@@ -224,7 +224,7 @@ sudo systemctl status sap-agent
 
 ## 测试连接
 
-### 5.1 健康检查
+### 健康检查
 
 ```bash
 curl http://127.0.0.1:8765/health | python3 -m json.tool
@@ -242,7 +242,7 @@ curl http://127.0.0.1:8765/health | python3 -m json.tool
 }
 ```
 
-### 5.2 建立连接
+### 建立连接
 
 ```bash
 curl -X POST http://127.0.0.1:8765/connect \
@@ -260,7 +260,7 @@ curl -X POST http://127.0.0.1:8765/connect \
 }
 ```
 
-### 5.3 测试查询
+### 测试查询
 
 ```bash
 # 保存 session_id
@@ -277,7 +277,7 @@ curl -X POST http://127.0.0.1:8765/read_table \
   }' | python3 -m json.tool
 ```
 
-### 5.4 断开连接
+### 断开连接
 
 ```bash
 # 释放回连接池（推荐）

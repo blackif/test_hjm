@@ -230,7 +230,11 @@ WEBUI_PID=$!
 
 ```
 WebUI 已启动，请在浏览器中打开：
-http://<LOCAL_IP>:<PORT>
+http://<你的服务器公网 IP>:7860
+
+注意：请确保 AWS 安全组已开放 TCP 7860 端口（入站规则）。
+如使用 SSH 隧道，请执行：ssh -L 7860:localhost:7860 ubuntu@<服务器公网 IP>
+然后访问：http://localhost:7860
 
 等待您在表单中确认提交后自动执行...
 ```

@@ -204,10 +204,10 @@ def build_app(issues: list, project_name: str):
     comment_sections = []
 
     custom_css = """
-    .issue-row { border-bottom: 1px solid #e1e4e8; padding: 8px 0; }
+    .issue-row { border-bottom: 1px solid #000000; padding: 8px 0; }
     .comment-box {
-        background: #f6f8fa;
-        border: 1px solid #e1e4e8;
+        background: #FFFFFF;
+        border: 1px solid #000000;
         border-radius: 6px;
         padding: 12px;
         font-size: 13px;
@@ -217,19 +217,23 @@ def build_app(issues: list, project_name: str):
         white-space: pre-wrap;
     }
     .gh-header {
-        background: #24292f;
-        color: #fff;
+        background: #FFFFFF;
+        color: #000000;
         padding: 12px 20px;
-        border-radius: 6px 6px 0 0;
+        border-radius: 6px;
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
         font-size: 15px;
+        border-bottom: 2px solid #000000;
     }
     .confirm-preview {
-        background: #fff8e1;
-        border: 1px solid #f0c040;
+        background: #FFFFFF;
+        border: 1px solid #000000;
         border-radius: 6px;
         padding: 12px;
         font-size: 13px;
+    }
+    .main-container {
+        background: #FFFFFF;
     }
     """
 
@@ -244,39 +248,30 @@ def build_app(issues: list, project_name: str):
         </div>
         """)
 
-        gr.Markdown("---")
-
         if not issues:
             gr.Markdown("⚠️ **没有找到需要处理的 issues。**")
             return app
-
-        # ── Issue table header ──
-        with gr.Row():
-            gr.Markdown("**☑**", elem_classes=["col-check"])
-            gr.Markdown("**#**")
-            gr.Markdown("**Title**")
-            gr.Markdown("**Labels**")
-            gr.Markdown("**Comments**")
-            gr.Markdown("**Require**")
-
-        gr.Markdown("---")
 
         # ── Issue rows ──
         for issue in issues:
             number = issue.get("number", "?")
             title = issue.get("title", "")
             labels = issue.get("labels", [])
-            label_str = labels[0]["name"] if labels else ""
+            if labels and isinstance(labels, list) and len(labels) > 0:
+                label_data = labels[0]
+                label_str = label_data.get("name", "") if isinstance(label_data, dict) else str(label_data)
+            else:
+                label_str = ""
             if len(labels) > 1:
                 label_str += " ..."
             repo = issue.get("repo", "")
             owner = issue.get("owner", "")
 
             with gr.Row(elem_classes=["issue-row"]):
-                cb = gr.Checkbox(label="", value=False, scale=1)
-                gr.Markdown(f"**#{number}**", scale=1)
-                gr.Markdown(title[:80], scale=4)
-                gr.Markdown(f"`{label_str}`" if label_str else "—", scale=2)
+                cb = gr.Checkbox(label="", value=False)
+                gr.Markdown(f"**#{number}**")
+                gr.Markdown(title[:80])
+                gr.Markdown(f"`{label_str}`" if label_str else "—")
 
                 with gr.Column(scale=3):
                     comment_toggle = gr.Button(
@@ -474,8 +469,7 @@ if __name__ == "__main__":
     app.launch(
         server_name=args.host,
         server_port=args.port,
-        share=False,
-        quiet=True,
-        show_api=False,
+        share=True,
+        quiet=False,
         prevent_thread_lock=False
     )

@@ -40,8 +40,8 @@ state = result.stdout.strip()
 | `first_run` | → 运行首次运行向导 |
 | `open_http` | → 启动 HTTP 服务（强制启用） |
 | `sap_login` | → SAP 登录 |
-| `connected` | → 继续执行操作 |
-| `closed_sap` | → SAP 退出，→ 运行 SAP 登录 |
+| `connected` | → SAP 操作 |
+| `closed_sap` | → SAP 退出 |
 
 **状态流转：**
 ```

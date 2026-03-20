@@ -35,10 +35,11 @@
 - [ ] 连接方式（直连 / SAProuter / 消息服务器）
 - [ ] 服务器地址
 - [ ] 系统编号 (SYSNR)
-- [ ] 集团代码 (CLIENT)
 - [ ] SAP 用户名
 - [ ] SAP 密码
 - [ ] 管理员邮箱
+
+注意：集团代码 (CLIENT) 和语言 (LANG) 在 SAP 登录时提供，不需要在此准备。
 
 ### Agent 需求
 
@@ -75,9 +76,7 @@ cat > ~/.sap-agent/config.json << 'EOF'
     "mode": "saprouter",
     "ashost": "/H/<router-host>/S/<port>/H/<target-server>",
     "sysnr": "<2-digit-system-number>",
-    "client": "<client-code>",
     "sysid": "<system-id>",
-    "lang": "<language>",
     "saprouter_host": "<router-host>",
     "saprouter_port": "<port>"
   },
@@ -106,9 +105,7 @@ chmod 600 ~/.sap-agent/config.json
 | `sap-1.mode` | SAP 连接方式 | `saprouter`（通过 SAProuter 连接）/ `direct`（直连 SAP 服务器）/ `msserver`（通过消息服务器连接） |
 | `sap-1.ashost` | SAP 目标主机地址或 SAProuter 路由字符串 | 直连模式：`"192.168.1.100"`；SAProuter 模式：`"/H/<路由器主机>/S/<路由器端口>/H/<目标服务器>"`，如 `"/H/router.company.com/S/3299/H/192.168.1.100"`；多跳路由：`"/H/outer-router/S/3299/H/inner-router/S/3299/H/sap-host"`；带路由密码：`"/H/router/S/3299/P/password/H/server"` |
 | `sap-1.sysnr` | SAP 系统编号（2 位数字） | `"10"` / `"01"` / `"42"` |
-| `sap-1.client` | SAP 集团代码（通常 3 位） | `"800"` / `"100"` / `"001"` |
 | `sap-1.sysid` | SAP 系统标识符（SID） | `"ED1"` / `"PRD"` / `"DEV"` |
-| `sap-1.lang` | 登录语言代码 | `"ZH"`（中文）/ `"EN"`（英文）/ `"DE"`（德文） |
 | `sap-1.saprouter_host` | SAProuter 服务器主机名（仅 saprouter 模式） | `"router.company.com"` |
 | `sap-1.saprouter_port` | SAProuter 服务端口（通常 3299） | `"3299"` |
 | `sdk.home` | SAP NW RFC SDK 安装路径 | `"/usr/local/sap/nwrfcsdk"` |
@@ -127,18 +124,14 @@ chmod 600 ~/.sap-agent/config.json
     "mode": "saprouter",
     "ashost": "/H/router-prod/S/3299/H/192.168.1.100",
     "sysnr": "10",
-    "client": "800",
-    "sysid": "PRD",
-    "lang": "ZH"
+    "sysid": "PRD"
   },
   "sap-2": {
     "directions": "测试环境 - MM 模块",
     "mode": "saprouter",
     "ashost": "/H/router-test/S/3299/H/192.168.1.101",
     "sysnr": "20",
-    "client": "100",
-    "sysid": "TST",
-    "lang": "ZH"
+    "sysid": "TST"
   },
   "sdk": {
     "home": "/usr/local/sap/nwrfcsdk",

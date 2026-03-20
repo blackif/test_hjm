@@ -20,7 +20,7 @@ import gradio as gr
 # ─────────────────────────────────────────────
 SUBMIT_RESULT_PATH = "/tmp/giu_submit_result.json"
 REQUIRE_OPTIONS = ["", "确认", "修改", "方案", "分析", "关闭", "移交", "暂挂"]
-AI_COMMENT_FOOTER = "\n\n------请注意这是AI做出的评论内容"
+AI_COMMENT_FOOTER = "\n\n------请注意这是 AI 做出的评论内容"
 
 # ─────────────────────────────────────────────
 # Data loading
@@ -32,7 +32,6 @@ def load_issues():
         issues = json.loads(raw)
     except json.JSONDecodeError:
         issues = []
-    # Sort by issue number ascending
     issues.sort(key=lambda x: x.get("number", 0))
     return issues
 
@@ -140,7 +139,6 @@ def push_comment(owner: str, repo: str, issue_number: int, body: str) -> bool:
     return result.returncode == 0
 
 def execute_task(issue: dict, require: str) -> dict:
-    """Execute a single task for an issue based on require type."""
     number = issue.get("number")
     title = issue.get("title", "")
     repo = issue.get("repo", "")
@@ -154,23 +152,18 @@ def execute_task(issue: dict, require: str) -> dict:
         number=number, title=title, repo=repo, body=body_text[:3000]
     )
 
-    # Call AI (Claude via gh extension or direct API — adapt as needed)
-    # Here we use a placeholder that calls the skill's AI caller
-    # In real deployment, replace this with the actual API call
     try:
         ai_result = subprocess.run(
-            ["gh", "api", "/"],  # placeholder — will be replaced by skill runner
+            ["gh", "api", "/"],
             capture_output=True, text=True, timeout=60
         )
         ai_response = f"[AI 回答占位符 — 实际由 skill 执行层处理]\n\nPrompt 已生成，将在提交后由 AI 处理。"
     except Exception as e:
         ai_response = f"⚠️ AI 调用失败：{e}"
 
-    # Push comment (for non-modify requires only preview; modify is handled by skill)
     if require not in ("修改",):
         push_comment(owner, repo, number, ai_response)
 
-    # Special actions
     if require == "关闭":
         subprocess.run(
             ["gh", "issue", "close", str(number), "--repo", f"{owner}/{repo}"],
@@ -198,23 +191,78 @@ def execute_task(issue: dict, require: str) -> dict:
 def build_app(issues: list, project_name: str):
     now_str = datetime.now().strftime("%Y/%m/%d %H:%M:%S")
 
-    # State containers
     checkboxes = []
     require_dropdowns = []
-    comment_sections = []
 
     custom_css = """
-    .issue-row { border-bottom: 1px solid #000000; padding: 8px 0; }
-    .comment-box {
+    .issue-row { 
+        border-bottom: 1px solid #000000; 
+        padding: 12px 0;
+        display: flex;
+        align-items: center;
+        gap: 16px;
+    }
+    .issue-checkbox-group {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        min-width: 120px;
+    }
+    .issue-checkbox-group label {
+        border: none !important;
+    }
+    .issue-checkbox-group input[type="checkbox"] {
+        border: none !important;
+        box-shadow: none !important;
+    }
+    .issue-checkbox-label {
+        font-weight: bold;
+        color: #000000;
+        white-space: nowrap;
+    }
+    .issue-title-box {
+        flex: 0 0 280px;
+        display: flex;
+        align-items: center;
+    }
+    .issue-title {
+        color: #000000;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    .issue-label {
+        background: #f6f8fa;
+        border: 1px solid #000000;
+        border-radius: 12px;
+        padding: 2px 8px;
+        font-size: 12px;
+        margin-left: 8px;
+    }
+    .comment-btn {
+        min-width: 140px;
+        border: none !important;
+        background: #f97316 !important;
+        color: #ffffff !important;
+    }
+    .comment-btn:hover {
+        background: #ea580c !important;
+    }
+    .require-dropdown {
+        min-width: 120px;
+        border: none !important;
+        box-shadow: none !important;
+    }
+    .require-dropdown .wrap {
+        border: none !important;
+    }
+    .comment-panel {
         background: #FFFFFF;
         border: 1px solid #000000;
         border-radius: 6px;
         padding: 12px;
-        font-size: 13px;
-        font-family: monospace;
-        max-height: 300px;
+        max-height: 400px;
         overflow-y: auto;
-        white-space: pre-wrap;
     }
     .gh-header {
         background: #FFFFFF;
@@ -224,6 +272,7 @@ def build_app(issues: list, project_name: str):
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
         font-size: 15px;
         border-bottom: 2px solid #000000;
+        margin-bottom: 20px;
     }
     .confirm-preview {
         background: #FFFFFF;
@@ -232,14 +281,9 @@ def build_app(issues: list, project_name: str):
         padding: 12px;
         font-size: 13px;
     }
-    .main-container {
-        background: #FFFFFF;
-    }
     """
 
     with gr.Blocks(css=custom_css, title="GitHub Issue WebUI") as app:
-
-        # ── Header ──
         gr.HTML(f"""
         <div class="gh-header">
             <strong>project:</strong> {project_name}
@@ -252,7 +296,29 @@ def build_app(issues: list, project_name: str):
             gr.Markdown("⚠️ **没有找到需要处理的 issues。**")
             return app
 
-        # ── Issue rows ──
+        error_msg = gr.Markdown("", visible=False)
+        confirm_preview = gr.Markdown("", visible=False)
+        submit_state = gr.State({})
+
+        # Modal for comments (side panel simulation)
+        with gr.Group(visible=False) as comment_modal:
+            gr.Markdown("### 💬 Comments")
+            modal_comment_content = gr.Markdown("")
+            modal_close = gr.Button("关闭", size="sm")
+
+        # Modal for confirmation
+        with gr.Group(visible=False) as confirm_modal:
+            gr.Markdown("### 请确认是否提交")
+            modal_confirm_text = gr.Markdown("")
+            with gr.Row():
+                modal_ok = gr.Button("确认", variant="primary", size="sm")
+                modal_cancel = gr.Button("取消", size="sm")
+
+        result_msg = gr.Markdown("", visible=False)
+
+        # Issue rows
+        MAX_TITLE_LEN = 15  # 最大汉字长度
+
         for issue in issues:
             number = issue.get("number", "?")
             title = issue.get("title", "")
@@ -262,85 +328,75 @@ def build_app(issues: list, project_name: str):
                 label_str = label_data.get("name", "") if isinstance(label_data, dict) else str(label_data)
             else:
                 label_str = ""
-            if len(labels) > 1:
-                label_str += " ..."
             repo = issue.get("repo", "")
             owner = issue.get("owner", "")
 
+            # 截断 title：超过 15 个汉字则截断并加...
+            if len(title) > MAX_TITLE_LEN:
+                display_title = title[:MAX_TITLE_LEN] + "..."
+            else:
+                display_title = title
+
             with gr.Row(elem_classes=["issue-row"]):
-                cb = gr.Checkbox(label="", value=False)
-                gr.Markdown(f"**#{number}**")
-                gr.Markdown(title[:80])
-                gr.Markdown(f"`{label_str}`" if label_str else "—")
-
-                with gr.Column(scale=3):
-                    comment_toggle = gr.Button(
-                        "💬 查看 comments", size="sm", variant="secondary"
-                    )
-                    comment_display = gr.Textbox(
-                        value="",
-                        visible=False,
-                        lines=6,
-                        interactive=False,
-                        show_label=False,
-                        elem_classes=["comment-box"]
-                    )
-
-                    def make_toggle(iss_owner, iss_repo, iss_number, disp):
-                        def toggle(visible):
-                            if not visible:
-                                content = get_full_comments(iss_owner, iss_repo, iss_number)
-                                return gr.update(value=content, visible=True)
-                            else:
-                                return gr.update(visible=False)
-                        return toggle
-
-                    # We use state to track visibility
-                    toggle_state = gr.State(False)
-                    comment_toggle.click(
-                        fn=make_toggle(owner, repo, number, comment_display),
-                        inputs=[toggle_state],
-                        outputs=[comment_display]
-                    ).then(
-                        fn=lambda s: not s,
-                        inputs=[toggle_state],
-                        outputs=[toggle_state]
-                    )
-                    comment_sections.append(comment_display)
-
+                # Column 1: Checkbox with label "Issues#XX"
+                cb = gr.Checkbox(label=f"Issues#{number}", value=False, elem_classes=["issue-checkbox-group"])
+                
+                # Column 2: Title with fixed width (15 汉字 + ... 约 280px)
+                with gr.Column(elem_classes=["issue-title-box"]):
+                    gr.HTML(f"""
+                    <span class="issue-title">{display_title}</span>
+                    """)
+                
+                # Column 3: Label badge
+                if label_str:
+                    gr.HTML(f'<span class="issue-label">{label_str}</span>')
+                
+                # Column 4: View Comments button (moved forward)
+                comment_btn = gr.Button("💬 查看 comments", size="sm", variant="secondary", elem_classes=["comment-btn"])
+                
+                # Column 5: Require dropdown
                 req = gr.Dropdown(
                     choices=REQUIRE_OPTIONS,
                     value="",
                     label="",
-                    scale=2,
-                    interactive=True
+                    interactive=True,
+                    elem_classes=["require-dropdown"]
+                )
+
+                # Comment modal state
+                comment_visible = gr.State(False)
+
+                def show_comments(iss_owner, iss_repo, iss_number, visible):
+                    content = get_full_comments(iss_owner, iss_repo, iss_number)
+                    return gr.update(value=content, visible=True), True
+
+                def hide_comments(visible):
+                    return gr.update(visible=False), False
+
+                comment_btn.click(
+                    fn=show_comments,
+                    inputs=[gr.State(owner), gr.State(repo), gr.State(number), comment_visible],
+                    outputs=[modal_comment_content, comment_visible]
+                ).then(
+                    fn=lambda v: gr.update(visible=True),
+                    outputs=[comment_modal]
+                )
+
+                modal_close.click(
+                    fn=hide_comments,
+                    inputs=[comment_visible],
+                    outputs=[comment_modal, comment_visible]
                 )
 
             checkboxes.append(cb)
             require_dropdowns.append(req)
 
-        gr.Markdown("---")
-
-        # ── Footer — Confirm button ──
-        error_msg = gr.Markdown("", visible=False)
-        confirm_preview = gr.Markdown("", visible=False, elem_classes=["confirm-preview"])
-
+        # Footer
         with gr.Row():
             confirm_btn = gr.Button("✅ 确认提交", variant="primary", scale=2)
             cancel_btn = gr.Button("取消", scale=1)
 
-        # Modal confirmation
-        with gr.Group(visible=False) as modal_group:
-            gr.Markdown("### 请确认是否提交")
-            modal_text = gr.Markdown("")
-            with gr.Row():
-                modal_ok = gr.Button("确认", variant="primary")
-                modal_cancel = gr.Button("取消")
-
-        submit_state = gr.State({})
-
         def handle_confirm(*args):
-            """Validate selections and build confirmation preview."""
             n = len(issues)
             cbs = list(args[:n])
             reqs = list(args[n:])
@@ -360,22 +416,23 @@ def build_app(issues: list, project_name: str):
                     gr.update(visible=False),
                     gr.update(visible=False),
                     gr.update(visible=False),
+                    gr.update(visible=False),
                     {}
                 )
 
             if errors:
                 return (
-                    gr.update(value="⚠️ " + "　".join(errors), visible=True),
+                    gr.update(value="⚠️ " + " ".join(errors), visible=True),
+                    gr.update(visible=False),
                     gr.update(visible=False),
                     gr.update(visible=False),
                     gr.update(visible=False),
                     {}
                 )
 
-            # Build preview text
             lines = ["**请确认是否提交：**\n\n"]
             for iss, req in selected:
-                lines.append(f"- **issue#{iss['number']}**：{iss['title'][:50]}（{req}）\n")
+                lines.append(f"- **Issues#{iss['number']}**: {iss['title'][:50]}（{req}）\n")
             preview_text = "".join(lines)
 
             return (
@@ -383,22 +440,20 @@ def build_app(issues: list, project_name: str):
                 gr.update(value=preview_text, visible=True),
                 gr.update(visible=True),
                 gr.update(value=preview_text),
+                gr.update(visible=False),
                 {"selected": [{"issue": iss, "require": req} for iss, req in selected]}
             )
 
         def execute_all(state):
-            """Execute all selected tasks after final confirmation."""
             selected = state.get("selected", [])
             results = []
             for item in selected:
                 r = execute_task(item["issue"], item["require"])
                 results.append(r)
 
-            # Write result file to signal main process
             with open(SUBMIT_RESULT_PATH, "w") as f:
                 json.dump({"results": results, "submitted_at": datetime.now().isoformat()}, f)
 
-            # Schedule shutdown
             def shutdown():
                 time.sleep(2)
                 os._exit(0)
@@ -407,11 +462,13 @@ def build_app(issues: list, project_name: str):
             return (
                 gr.update(visible=False),
                 gr.update(visible=False),
+                gr.update(visible=False),
                 gr.update(value="✅ 提交完成！页面即将关闭，请前往 GitHub 确认结果。", visible=True)
             )
 
         def handle_cancel():
             return (
+                gr.update(visible=False),
                 gr.update(visible=False),
                 gr.update(visible=False),
                 gr.update(visible=False)
@@ -422,23 +479,23 @@ def build_app(issues: list, project_name: str):
         confirm_btn.click(
             fn=handle_confirm,
             inputs=all_inputs,
-            outputs=[error_msg, confirm_preview, modal_group, modal_text, submit_state]
+            outputs=[error_msg, confirm_preview, confirm_modal, modal_confirm_text, comment_modal, submit_state]
         )
 
         modal_ok.click(
             fn=execute_all,
             inputs=[submit_state],
-            outputs=[confirm_preview, modal_group, error_msg]
+            outputs=[confirm_preview, confirm_modal, comment_modal, result_msg]
         )
 
         modal_cancel.click(
             fn=handle_cancel,
-            outputs=[confirm_preview, modal_group, error_msg]
+            outputs=[confirm_preview, confirm_modal, comment_modal, result_msg]
         )
 
         cancel_btn.click(
             fn=handle_cancel,
-            outputs=[confirm_preview, modal_group, error_msg]
+            outputs=[confirm_preview, confirm_modal, comment_modal, result_msg]
         )
 
     return app
@@ -457,7 +514,6 @@ if __name__ == "__main__":
     issues = load_issues()
     project_name = get_project_name()
 
-    # Remove any stale submit result
     Path(SUBMIT_RESULT_PATH).unlink(missing_ok=True)
 
     app = build_app(issues, project_name)
@@ -469,7 +525,7 @@ if __name__ == "__main__":
     app.launch(
         server_name=args.host,
         server_port=args.port,
-        share=True,
+        share=False,
         quiet=False,
         prevent_thread_lock=False
     )

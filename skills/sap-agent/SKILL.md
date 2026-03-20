@@ -124,7 +124,7 @@ SAP 系统：ECC / S/4HANA / C/4 Cloud
 选填>>登录组 (group, 例：PUBLIC):
 ```
 
-**方式二：Web UI 收集**（计划中，Issue #44）
+**方式二：Web UI 收集**（计划中）
 
 使用 Gradio 实现可视化表单：
 - 创建 `scripts/ui_config.py`
@@ -155,7 +155,7 @@ export LD_LIBRARY_PATH=$SAPNWRFC_HOME/lib
 python3 scripts/sap_service.py --host 127.0.0.1 --port 8765
 ```
 
-**说明（Issue #46）：**
+**说明：**
 - HTTP 服务启动后自动启用连接池
 - 连接池是 HTTP 服务的核心功能
 - 服务持续运行，连接池保持活跃
@@ -182,7 +182,7 @@ from scripts.sap_session import connect
 result = connect(config, sap_user, sap_password, client, lang)
 ```
 
-**方式二：Web UI 收集**（计划中，Issue #47）
+**方式二：Web UI 收集**（计划中）
 
 使用 Gradio 实现登录表单：
 - 创建 `scripts/ui_login.py`

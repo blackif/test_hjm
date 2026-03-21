@@ -9,7 +9,7 @@ description: >
 
 # GitHub Issue WebUI Skill
 
-通过本地 Gradio WebUI 可视化审核和批量处理 GitHub Project Issues，
+通过本地 Gradio WebUI 可视化审核和批量处理 GitHub Issues，
 所有操作必须经用户在 UI 上确认提交后才能执行，严禁提前操作。
 
 ---
@@ -37,9 +37,7 @@ gh auth status 2>&1
 ```
 IF 认证失败或未配置
   → 向用户询问：
-    「请提供以下信息以连接 GitHub：
-      1. GitHub Personal Access Token（需要 repo + project 权限）
-      2. 执行：gh auth login --with-token <<< "YOUR_TOKEN"」
+    「请执行：gh auth login」
   → 用户配置完成后重新执行 STEP 1
 
 IF OK → 继续 STEP 2
@@ -47,122 +45,76 @@ IF OK → 继续 STEP 2
 
 ---
 
-## STEP 2 — 查询所有 Project 并过滤
+## STEP 2 — 查询 Issues 并准备数据
 
 ```bash
-# 获取当前用户
-GH_USER=$(gh api user --jq '.login')
+# 获取指定仓库的开放 issues
+REPO="${REPO:-blackif/claw_hjm}"
+ISSUES_JSON=$(gh issue list --repo "$REPO" --state open \
+  --json number,title,body,createdAt,updatedAt,author,labels,comments \
+  --limit 100)
 
-# 获取用户所有 projects（最多100个）
-gh project list --owner "$GH_USER" --format json --limit 100 > /tmp/giu_projects_raw.json
-
-# 也查询所有可访问的组织 projects（如有）
-# gh project list --owner "ORG_NAME" --format json >> /tmp/giu_projects_raw.json
+# 添加 owner 和 repo 字段
+ISSUES_WITH_REPO=$(echo "$ISSUES_JSON" | jq --arg repo "$REPO" '
+  .[] | . + {
+    owner: ($repo | split("/")[0]),
+    repo: $repo
+  }
+' | jq -s '.')
 ```
 
-对每个 project，查询其关联 issues：
-
-```bash
-# 获取 project 内的 items（issues）
-gh project item-list PROJECT_NUMBER \
-  --owner "$GH_USER" \
-  --format json \
-  --limit 200 \
-  | jq '[.items[] | select(.type == "ISSUE")]' \
-  > /tmp/giu_project_items_${PROJECT_NUMBER}.json
 ```
-
-**过滤规则（以下 project 不参与后续流程）：**
-- project 内没有任何 issue 的
-- project 内所有 issue 均为 closed 状态的
-
-```
-IF 过滤后没有任何 project
-  → 输出：「YYYY-MM-DD HH:MM:SS 查询完成，当前所有 project 均无待处理 issues。」
+IF 没有任何 issues
+  → 输出：「当前仓库没有开放的 issues。」
   → 结束本次执行
 
-IF 过滤后有可用 project → 继续 STEP 3
+IF 有可用 issues → 继续 STEP 3
 ```
 
 ---
 
-## STEP 3 — 向用户展示 Project 清单并询问操作对象
-
-输出格式（严格遵守）：
-
-```
-YYYY-MM-DD HH:MM:SS 查询到以下结果
-
-project <名称>  issues <N>个  关联仓库 <repo1>, <repo2>
-project <名称>  issues <N>个  关联仓库 <repo1>
-...
-
-请输入要操作的 project 名称（或编号）：
-```
-
-对每个 project 列出的 issues：
+## STEP 3 — 启动 WebUI
 
 ```bash
-# 获取 project 内 open issues 详情（含 issue 编号、仓库、标题、labels、comments）
-gh project item-list PROJECT_NUMBER \
-  --owner "$GH_USER" \
-  --format json \
-  | jq '[.items[] | select(.type=="ISSUE" and .status!="Done" and .status!="Closed")]'
+SKILL_DIR="$(cd "$(dirname "$0")" && pwd)"
+SCRIPT_PATH="${SKILL_DIR}/script/launch-github-webui.sh"
+
+# 检查启动脚本
+if [ ! -f "$SCRIPT_PATH" ]; then
+  echo "❌ 启动脚本不存在：$SCRIPT_PATH"
+  exit 1
+fi
+
+# 启动 WebUI
+"$SCRIPT_PATH" "$REPO" "Issues Review"
 ```
 
+向用户发送访问链接：
+
 ```
-IF 用户选择了 project → 继续 STEP 4
-IF 用户取消 → 结束
+WebUI 已启动，请在浏览器中打开：
+http://<你的服务器公网 IP>:7860
+
+注意：请确保防火墙已开放 TCP 7860 端口。
+如使用 SSH 隧道，请执行：ssh -L 7860:localhost:7860 ubuntu@<服务器公网 IP>
+然后访问：http://localhost:7860
+
+等待您在表单中确认提交后自动执行...
 ```
 
 ---
 
-## STEP 4 — 检查或创建 WebUI
+## STEP 4 — 用户操作流程（WebUI 界面）
 
-### 4.1 检查 WebUI 是否存在
-
-```bash
-SKILL_DIR="$(dirname "$0")"   # skill 所在目录
-WEBUI_PATH="${SKILL_DIR}/webui/app.py"
-
-ls -la "$WEBUI_PATH" 2>&1
-python3 -c "
-import ast, sys
-with open('${WEBUI_PATH}') as f: src = f.read()
-tree = ast.parse(src)
-names = [n.name if hasattr(n,'name') else '' for n in ast.walk(tree) if isinstance(n, (ast.Import, ast.ImportFrom))]
-# 验证必要组件
-required = ['gradio', 'subprocess']
-missing = [r for r in required if not any(r in str(n) for n in ast.walk(tree))]
-print('OK' if not missing else 'MISSING:'+','.join(missing))
-"
-```
-
-```
-IF app.py 存在且包含 gradio 和 subprocess → 跳转 STEP 5
-IF app.py 不存在或格式不符合 → 执行 STEP 4.2
-```
-
-### 4.2 创建 WebUI 脚本
-
-参考 `webui/app.py` 模板（见本 skill 的 webui/ 目录）。
-如模板文件存在，直接复制并根据当前 project 数据填充；
-如模板不存在，按本 SKILL.md 附录的 WebUI 规范从头生成。
-
-**WebUI 必须包含的功能：**
+### 4.1 界面结构
 
 | 区域 | 内容 |
 |------|------|
-| **Header** | `project: <名称>  YYYY/MM/DD HH:MM:SS` |
-| **Body - 列1** | Checkbox 选中=操作对象，不选=忽略 |
-| **Body - 列2** | Issue 编号（升序排列） |
-| **Body - 列3** | Issue 标题 |
-| **Body - 列4** | Labels（多个时显示第一个 + `...`） |
-| **Body - 列5** | Comments 折叠按钮（默认收起，点击展开完整内容，仿 GitHub 样式，只读） |
-| **Body - 列6** | Require 下拉框（默认空白，选项见下方） |
-| **Footer** | 确认按钮（含校验 + 二次确认弹窗） |
+| **Header** | `项目名称  N Issues` |
+| **Body - 每行** | Checkbox + Issue 编号 + 标题 + 💬评论按钮 + Require 下拉框 |
+| **Footer** | 📖 Require 说明按钮 + ✅ 确认提交按钮 |
 
-**Require 下拉选项及 AI 行为规范：**
+### 4.2 Require 选项说明
 
 | 选项 | AI 行为（严格执行） |
 |------|-------------------|
@@ -176,85 +128,67 @@ IF app.py 不存在或格式不符合 → 执行 STEP 4.2
 
 **所有 AI comment 末尾必须附加（换行后）：**
 ```
-------请注意这是AI做出的评论内容
+------请注意这是 AI 做出的评论内容
 ```
 
-**Footer 确认按钮逻辑：**
+### 4.3 提交流程
+
+1. **勾选 Issues** - 用户勾选需要处理的 issue
+2. **选择 Require** - 为每个勾选的 issue 选择操作类型
+3. **点击确认提交** - 弹出二次确认对话框
+4. **再次确认** - 用户点击"✅ 确认提交"
+5. **异步执行** - 立即显示成功消息，后台执行 AI 任务
+6. **完成** - 用户前往 GitHub 确认结果
+
+**确认对话框内容：**
 ```
-1. 检查所有勾选的 issue：
-   IF 任何勾选 issue 的 Require 为空白
-     → 显示错误提示：「issue#XX 请选择 require」
-     → 不继续处理
+请确认提交内容：
+- issue#XX：标题（require 名称）
+- issue#YY：标题（require 名称）
+...
 
-2. 全部校验通过 → 弹出确认对话框：
-   「请确认是否提交：
-    issue#XX：XX（require 名称）
-    issue#YY：YY（require 名称）
-    ...
-    [确认] [取消]」
-
-3. 用户点击确认 → 组织提示词 → 调用 AI 执行 task → 关闭 WebUI
-4. 用户点击取消 → 返回 UI 画面
+[✅ 确认提交] [取消]
 ```
-
-创建完成后继续 STEP 5。
 
 ---
 
-## STEP 5 — 启动 WebUI 并等待用户提交
-
-```bash
-# 获取本机 IP
-LOCAL_IP=$(hostname -I | awk '{print $1}')
-
-# 查找可用端口（从 7860 开始扫描）
-for PORT in $(seq 7860 7900); do
-  if ! lsof -i :$PORT > /dev/null 2>&1; then
-    AVAILABLE_PORT=$PORT
-    break
-  fi
-done
-
-# 传入 project 数据并启动
-ISSUES_JSON='<从 STEP 3 收集的 issues JSON>' \
-PROJECT_NAME='<project 名称>' \
-python3 "${SKILL_DIR}/webui/app.py" \
-  --host 0.0.0.0 \
-  --port "$AVAILABLE_PORT" \
-  --issues-json "$ISSUES_JSON" &
-
-WEBUI_PID=$!
-```
-
-向用户发送链接：
-
-```
-WebUI 已启动，请在浏览器中打开：
-http://<你的服务器公网 IP>:7860
-
-注意：请确保 AWS 安全组已开放 TCP 7860 端口（入站规则）。
-如使用 SSH 隧道，请执行：ssh -L 7860:localhost:7860 ubuntu@<服务器公网 IP>
-然后访问：http://localhost:7860
-
-等待您在表单中确认提交后自动执行...
-```
-
-等待 WebUI 进程提交信号（WebUI 内部通过 flag file 或 callback 通知）。
-
----
-
-## STEP 6 — 执行 AI Task
+## STEP 5 — 执行 AI Task
 
 WebUI 提交后，根据每个 issue 的 require 依次执行：
 
-### 执行顺序
+### 5.1 AI 调用方式
 
-1. 读取提交的 issue + require 列表
-2. 对每个 issue，按 require 类型构建专用 prompt（见下方）
-3. 调用 AI 处理，将结果通过 `gh issue comment` 推送到 GitHub
-4. 特殊 require（修改/关闭/移交/暂挂）按对应规则执行额外操作
+使用 OpenAI 兼容 API 格式调用 Bailian/Qwen：
 
-### 各 Require 的 Prompt 模板
+```python
+import json
+from urllib.request import urlopen, Request
+
+def call_ai(prompt: str) -> str:
+    api_key = os.environ.get("DASHSCOPE_API_KEY")
+    
+    data = json.dumps({
+        "model": "qwen3.5-plus",
+        "messages": [{"role": "user", "content": prompt}],
+        "max_tokens": 2000,
+        "temperature": 0.7
+    }).encode('utf-8')
+    
+    req = Request(
+        "https://coding.dashscope.aliyuncs.com/v1/chat/completions",
+        data=data,
+        headers={
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json"
+        }
+    )
+    
+    with urlopen(req, timeout=90) as response:
+        result = json.loads(response.read().decode('utf-8'))
+        return result["choices"][0]["message"]["content"]
+```
+
+### 5.2 各 Require 的 Prompt 模板
 
 **确认：**
 ```
@@ -263,6 +197,7 @@ WebUI 提交后，根据每个 issue 的 require 依次执行：
 然后给出一个确认回答。你只能追加 comment，不能修改任何文件。
 
 Issue #<N>：<title>
+仓库：<owner/repo>
 内容：<body + comments>
 
 请用简洁专业的语言回答这个 issue。
@@ -275,8 +210,8 @@ Issue #<N>：<title>
 执行修改后追加 comment：「已经完成修改，请确认」。
 
 Issue #<N>：<title>
+仓库：<owner/repo>
 内容：<body + comments>
-相关仓库：<owner/repo>
 
 请分析需要修改什么文件，然后执行修改并推送。
 ```
@@ -287,6 +222,7 @@ Issue #<N>：<title>
 请基于以下 issue 内容，给出一个完整的解决方案（不执行修改，只输出方案）。
 
 Issue #<N>：<title>
+仓库：<owner/repo>
 内容：<body + comments>
 
 请输出完整方案，包括：问题分析、解决思路、具体步骤、潜在风险。
@@ -298,12 +234,13 @@ Issue #<N>：<title>
 请对以下 issue 进行深度分析，输出分析报告。
 
 Issue #<N>：<title>
+仓库：<owner/repo>
 内容：<body + comments>
 
 请输出：根本原因分析、影响范围、优先级评估、相关 issue 关联。
 ```
 
-### 推送 Comment
+### 5.3 推送 Comment
 
 ```bash
 # 所有 require 类型都通过此命令追加 comment
@@ -311,14 +248,10 @@ gh issue comment $ISSUE_NUMBER \
   --repo "$OWNER/$REPO" \
   --body "$AI_RESPONSE
 
-------请注意这是AI做出的评论内容"
+------请注意这是 AI 做出的评论内容"
 
-# 修改类：执行文件修改后推送
 # 关闭类：
-gh issue close $ISSUE_NUMBER --repo "$OWNER/$REPO" \
-  --comment "根据 require 指示关闭此 issue。
-
-------请注意这是AI做出的评论内容"
+gh issue close $ISSUE_NUMBER --repo "$OWNER/$REPO"
 
 # 移交类：
 gh issue edit $ISSUE_NUMBER --repo "$OWNER/$REPO" --add-label "needs-human"
@@ -329,40 +262,78 @@ gh issue edit $ISSUE_NUMBER --repo "$OWNER/$REPO" --add-label "on-hold"
 
 ---
 
-## STEP 7 — 输出执行结果
+## STEP 6 — 输出执行结果
 
-关闭 WebUI 并输出简洁结果（格式严格遵守）：
+WebUI 提交后自动关闭，向用户输出简洁结果：
 
 ```
-project <名称>  YYYY-MM-DD HH:MM:SS
+✅ 提交完成！请前往 GitHub 确认结果。
 
-issues#XX
-issues#YY
-...
-
-上述所有评论或修改已推送到 GitHub。
+https://github.com/<owner>/<repo>/issues
 ```
 
-**注意：结果只列出 issue 编号，不描述具体操作内容。用户自行去 GitHub 确认。**
+**注意：结果不描述具体操作内容，用户自行去 GitHub 确认。**
 
 ---
 
-## 附录：WebUI 规范参考
+## 附录：文件结构
 
-WebUI 的完整实现模板位于本 skill 目录的 `webui/app.py`。
+```
+skills/github-issue-webui/
+├── .gradio/              # Gradio 配置
+├── SKILL.md              # 本文件
+└── script/               # 执行脚本
+    ├── app.py            # WebUI 主程序
+    ├── ai_caller.py      # AI 调用模块
+    └── launch-github-webui.sh  # 启动脚本
+```
 
-**技术要求：**
+### 启动脚本参数
+
+```bash
+./script/launch-github-webui.sh [REPO] [PROJECT_NAME]
+
+# 示例
+./script/launch-github-webui.sh blackif/claw_hjm "Issues Review"
+```
+
+### 环境变量
+
+| 变量 | 说明 | 默认值 |
+|------|------|--------|
+| `CONFIG_FILE` | 配置文件路径 | `/home/ubuntu/.openclaw/workspace/config.json` |
+| `DASHSCOPE_API_KEY` | AI API Key | 从配置文件读取 |
+
+### 配置文件格式
+
+```json
+{
+  "webui": {
+    "public_host": "3.107.252.75",
+    "port": 7860,
+    "theme": "light"
+  },
+  "api": {
+    "dashscope_key": "sk-xxxxx",
+    "model": "qwen3.5-plus"
+  }
+}
+```
+
+---
+
+## 技术要求
+
 - Python 3.8+
 - gradio >= 4.0
+- gh CLI（已认证）
 - 通过环境变量接收数据：`ISSUES_JSON`、`PROJECT_NAME`
-- 端口通过命令行参数 `--port` 传入
-- 提交完成后通过写入 `/tmp/giu_submit_result.json` 通知主流程
+- 提交完成后写入 `/tmp/giu_submit_result.json`
 - 启动后主动打印访问地址
 
-**样式要求：**
-- 整体风格参考 GitHub Issues 页面（深色/浅色跟随系统）
-- Comment 折叠区仿照 GitHub comment 卡片样式（头像占位 + 圆角边框 + 时间戳）
-- Require 下拉框使用 Gradio Dropdown 组件
-- 确认弹窗使用 Gradio Modal 组件
+## 样式要求
 
-具体实现详见 `webui/app.py`。
+- 整体风格参考 GitHub Issues 页面
+- Require 说明使用侧边栏面板展示
+- 确认弹窗使用 Gradio 原生 Modal
+- 成功消息使用 `gr.Info()` 异步显示

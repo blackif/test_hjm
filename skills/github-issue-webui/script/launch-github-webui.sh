@@ -2,11 +2,12 @@
 # GitHub Issue WebUI Launcher
 # Fetches issues from GitHub and launches the WebUI
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO="${1:-blackif/claw_hjm}"
 PROJECT_NAME="${2:-claw_hjm}"
 
 # Load API Key from config
-CONFIG_FILE="/home/ubuntu/.openclaw/workspace/config.json"
+CONFIG_FILE="${CONFIG_FILE:-/home/ubuntu/.openclaw/workspace/config.json}"
 if [ -f "$CONFIG_FILE" ]; then
     API_KEY=$(jq -r '.api.dashscope_key // empty' "$CONFIG_FILE" 2>/dev/null)
     if [ -n "$API_KEY" ] && [ "$API_KEY" != "null" ]; then
@@ -37,7 +38,7 @@ export ISSUES_JSON="$ISSUES_WITH_REPO"
 export PROJECT_NAME="$PROJECT_NAME"
 
 echo "🚀 Launching WebUI..."
-python3 /home/ubuntu/.openclaw/workspace/github-issue-webui.py \
+python3 "$SCRIPT_DIR/app.py" \
   --host 0.0.0.0 \
   --port 7860 \
-  --config /home/ubuntu/.openclaw/workspace/config.json
+  --config "$CONFIG_FILE"

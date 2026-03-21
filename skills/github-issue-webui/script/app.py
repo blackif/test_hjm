@@ -359,12 +359,19 @@ def build_app(issues: list, project_name: str):
 
         # ── Execute ──
         def execute_all(state):
+            """异步执行任务：立即返回消息，后台执行 AI 任务"""
             selected = state.get("selected", [])
-            results  = [execute_task(item["issue"], item["require"]) for item in selected]
-            Path(SUBMIT_RESULT_PATH).write_text(
-                json.dumps({"results": results, "submitted_at": datetime.now().isoformat()}))
-            threading.Thread(target=lambda: (time.sleep(2), os._exit(0)), daemon=True).start()
-            gr.Warning("✅ 提交完成！页面即将关闭，请前往 GitHub 确认结果。", duration=6)
+            
+            # 启动后台线程执行实际任务
+            def run_tasks():
+                results = [execute_task(item["issue"], item["require"]) for item in selected]
+                Path(SUBMIT_RESULT_PATH).write_text(
+                    json.dumps({"results": results, "submitted_at": datetime.now().isoformat()}))
+            
+            threading.Thread(target=run_tasks, daemon=True).start()
+            
+            # 立即返回成功消息
+            gr.Info("✅ 提交完成！请前往 GitHub 确认结果。")
             return gr.update(visible=False)
 
         btn_ok.click(fn=execute_all, inputs=submit_state, outputs=panel_confirm)
